@@ -61,3 +61,7 @@ Native decompilation needs an available configured provider. A missing provider 
 ## Release gate
 
 A release may claim only the feature rows whose implementation and acceptance evidence are linked. Failed or unavailable SSH, forge, daemon or update scenarios remain explicit limitations. Passing compilation cannot close those rows.
+
+## 0.3 release gate
+
+Run make check: actual Git fixtures now include ignored-file protection; StateCheck.swift exercises valid/legacy state, dangling layouts, malformed metadata and backup recovery in an isolated preference suite. release_policy_check.py uses a real temporary Git repository to reject mismatched tags, dirty checkouts and missing signing/notary inputs. The GUI harness remains confined to a temporary workspace and verifies same-PID reattachment. scripts/verify_app.py checks version, icon/notices, architecture manifest, hardened signature and production identity requirements. release.py additionally round-trips the final ZIP. CI is prepared for native Apple Silicon and Intel runners; no hosted run has occurred.

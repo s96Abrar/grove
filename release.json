@@ -1,0 +1,6 @@
+{
+  "version": "0.3.0",
+  "build": 3,
+  "bundle_identifier": "local.grove.workspace",
+  "minimum_macos": "14.0"
+}

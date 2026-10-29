@@ -29,7 +29,16 @@ import Foundation
         let cleanPath = try Git.create(branch: "feature/clean", at: repo.path, baseRef: "main")
         try Git.remove(Worktree(path: cleanPath, branch: "feature/clean"), at: repo.path)
         precondition(!FileManager.default.fileExists(atPath: cleanPath))
-        print("PASS: worktree discovery, paths with spaces, branch creation, file isolation, staged diff, invalid/duplicate branches, rename, base ref, dirty/main removal rejection, clean removal")
+        let ignoredPath = try Git.create(branch: "feature/ignored", at: repo.path)
+        let ignoreFile = URL(fileURLWithPath: ignoredPath).appendingPathComponent(".gitignore")
+        try ".env\n".write(to: ignoreFile, atomically: true, encoding: .utf8)
+        _ = try Git.run(["add", ".gitignore"], at: ignoredPath)
+        _ = try Git.run(["-c", "user.name=Grove Check", "-c", "user.email=check@example.test", "commit", "-m", "ignore local config"], at: ignoredPath)
+        let ignoredFile = URL(fileURLWithPath: ignoredPath).appendingPathComponent(".env")
+        try "local-only".write(to: ignoredFile, atomically: true, encoding: .utf8)
+        do { try Git.remove(Worktree(path: ignoredPath, branch: "feature/ignored"), at: repo.path); fatalError("Ignored files were removed") } catch {}
+        precondition(FileManager.default.fileExists(atPath: ignoredFile.path))
+        print("PASS: worktree discovery, paths with spaces, branch creation, file isolation, staged diff, invalid/duplicate branches, rename, base ref, dirty/main/ignored-file removal rejection, clean removal")
         print("Fixture: \(base.path)")
     }
 }

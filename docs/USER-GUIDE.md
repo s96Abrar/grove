@@ -1,6 +1,6 @@
 # Grove user guide
 
-Grove 0.2 is an independent native macOS app. It provides interactive shells inside the window, rather than the original noninteractive command console. Full Supacode parity is still tracked in [feature coverage](FEATURE-PARITY.md).
+Grove 0.3 is an independent native macOS app. It provides interactive shells inside the window, rather than the original noninteractive command console. Full Supacode parity is still tracked in [feature coverage](FEATURE-PARITY.md).
 
 ## Add a workspace
 
@@ -28,7 +28,7 @@ Workspace metadata saves tab/pane IDs and recursive split orientation/layout. Th
 
 Settings enables **Keep terminal sessions alive with screen** by default. A persistent pane creates a detached `screen` session named `grove-<pane UUID>` if none exists, then attaches to it. When that pane is recreated, it can attach to the existing shell rather than replay a command. Existing panes retain their launch mode when the setting changes.
 
-Closing a tab prompts first. Persistent panes detach and their screen sessions stay alive; nonpersistent panes terminate. Closing a persistent tab also removes its saved pane IDs, so that detached session is no longer offered as a saved tab. The **Workspace → Quit and End Grove Sessions…** action asks for confirmation and requests termination of screen sessions referenced by saved pane IDs, then quits. Its current implementation does not surface individual cleanup failures and does not include orphaned sessions whose tab was already removed. Inspect sessions using the CLI or `/usr/bin/screen -list`; terminate only a session you identify deliberately:
+Closing a tab prompts first and ends its sessions. If cleanup fails, Grove reports the error and keeps the tab metadata. Ordinary Quit preserves persistent shells. **Workspace → Quit and End Grove Sessions…** confirms and ends saved sessions, reporting failures. Earlier versions may have left detached orphan sessions; inspect exact IDs using the CLI or screen before ending any manually:
 
 ```sh
 /usr/bin/screen -S grove-EXACT-PANE-UUID -X quit
@@ -64,3 +64,11 @@ python3 scripts/grove sessions
 Supported actions are `open`, `select`, `new-worktree`, `new-tab`, `split`, `list` and `sessions`. Mutation commands use the `grove://` URL scheme. When invoked inside a Grove pane, the CLI supplies `GROVE_WORKTREE_PATH` context; otherwise actions use the app selection. Split actions currently target the selected worktree’s last saved tab, not necessarily the visually active tab. `list` reads saved workspace metadata, not authoritative live state. `sessions` delegates to screen’s complete session list, which may include non-Grove sessions. App IPC queries, complete pane/tab commands and full repo/tab/surface contextual defaults are not implemented. Deeplinks do not accept arbitrary shell commands.
 
 See [privacy](PRIVACY.md), [development](DEVELOPMENT.md) and [testing](TESTING.md) for storage, external effects and verification boundaries.
+
+## Workspace recovery and 0.3 lifecycle changes
+
+The active tab is now remembered. Workspace saves retain the previous valid snapshot; malformed metadata is preserved and a valid backup is restored when possible. If neither snapshot can be read, saves are blocked instead of replacing your data. Settings → Reset Workspace Metadata is an explicit confirmed recovery action; it does not delete source folders or Git worktrees. The unreadable/reset snapshot is retained locally.
+
+Confirmed tab closure now ends that tab’s sessions and running commands. Regular Quit keeps persistent sessions alive; Quit and End Grove Sessions stops saved sessions and reports failures. Worktree removal also refuses ignored files such as .env. App packaging and tagged release instructions are in [Releasing](RELEASING.md).
+
+Startup commands for a script tab run once when you choose the script. They are not persisted as automatic restore commands. A surviving screen session keeps its original process; if that session is gone, restoration opens a shell instead of silently repeating a build/deployment command. Saved script definitions remain in the Scripts menu for explicit reruns.

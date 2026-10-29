@@ -4,6 +4,7 @@ Grove is a native macOS coding workspace being expanded toward Supacode-like wor
 
 | Document | Purpose |
 |---|---|
+| [Release policy](RELEASING.md) | Local builds, tag-only CI/CD, signing prerequisites and current release limits. |
 | [User guide](USER-GUIDE.md) | Use the current independent app and understand its limits. |
 | [Feature coverage](FEATURE-PARITY.md) | Upstream behavior inventory, current Grove implementation and acceptance targets. |
 | [Architecture](ARCHITECTURE.md) | Existing implementation and target design responsibilities. |
@@ -16,3 +17,5 @@ Grove is a native macOS coding workspace being expanded toward Supacode-like wor
 | [REA setup output](rea-setup.txt) | Recorded result of the approved Codex registration setup. |
 
 The feature matrix describes current source capabilities and explicitly retains missing parity. Planned architecture and acceptance scenarios are not completion claims. The user requested an independent implementation without telemetry; Supacode code/assets are not adopted.
+
+Raw REA and runtime evidence under docs/evidence is generated locally and excluded from Git because it can include local paths and packaged third-party configuration. Links to those files apply to the inspected workspace. CI runs regenerate their own check results; evidence is not included in delivery app archives.

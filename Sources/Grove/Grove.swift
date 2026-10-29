@@ -144,7 +144,7 @@ struct ContentView: View {
                     if let data = try? JSONSerialization.data(withJSONObject: info, options: .prettyPrinted) { try? data.write(to: URL(fileURLWithPath: path + "/grove-runtime.json")) }
                 }
             }
-            await model.reload(); while !Task.isCancelled { try? await Task.sleep(for: .seconds(5)); await model.reload(); await model.refreshChanges() } }
+            await model.reload(); while !Task.isCancelled { do { try await Task.sleep(for: .seconds(5)) } catch { break }; await model.reload(); await model.refreshChanges() } }
         .sheet(isPresented: Binding(get: { renamingTree != nil }, set: { if !$0 { renamingTree = nil } })) {
             VStack(spacing: 20) { Text("Rename branch").font(.headline); TextField("Branch name", text: $renamedBranch); HStack { Button("Cancel") { renamingTree = nil }; Button("Rename") { if let tree = renamingTree { Task { await model.rename(tree, branch: renamedBranch) } }; renamingTree = nil } } }.padding(30).frame(width: 350)
         }
@@ -170,12 +170,11 @@ struct SessionTabs: View {
     @EnvironmentObject var model: Workspace
     let path: String
     @Environment(\.openSettings) private var openSettings
-    @State private var selection: UUID?
     @State private var closing: TabRecord?
     @State private var renaming: TabRecord?
     @State private var tabName = ""
     var tabs: [TabRecord] { model.saved.tabs[path] ?? [] }
-    var active: TabRecord? { tabs.first(where: { $0.id == selection }) ?? tabs.last }
+    var active: TabRecord? { tabs.first(where: { $0.id == model.saved.activeTabs?[path] }) ?? tabs.last }
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -183,7 +182,7 @@ struct SessionTabs: View {
                     HStack {
                         ForEach(tabs) { tab in
                             HStack(spacing: 8) {
-                                Button { selection = tab.id } label: { Label(tab.name, systemImage: "terminal") }.buttonStyle(.plain)
+                                Button { model.saved.activeTabs = model.saved.activeTabs ?? [:]; model.saved.activeTabs?[path] = tab.id; model.save() } label: { Label(tab.name, systemImage: "terminal") }.buttonStyle(.plain)
                                 Button { closing = tab } label: { Image(systemName: "xmark").font(.system(size: 8)) }.buttonStyle(.plain)
                             }.contextMenu {
                                 Button("Rename…") { tabName = tab.name; renaming = tab }
@@ -193,14 +192,14 @@ struct SessionTabs: View {
                         }
                     }
                 }
-                Button { model.addTab(); selection = tabs.last?.id } label: { Image(systemName: "plus") }.help("New tab")
+                Button { model.addTab() } label: { Image(systemName: "plus") }.help("New tab")
                 Menu {
                     Button("Split left / right") { if let active { model.split(tab: active.id, vertical: true) } }
                     Button("Split top / bottom") { if let active { model.split(tab: active.id, vertical: false) } }
                 } label: { Image(systemName: "rectangle.split.2x1") }
                 Menu("Scripts") {
                     ForEach(model.saved.scripts.filter { $0.root == nil || $0.root == model.selected.flatMap({ model.root(for: $0) }) }) { script in
-                        Button(script.name) { model.addTab(command: script.command, name: script.name); selection = tabs.last?.id }
+                        Button(script.name) { model.addTab(command: script.command, name: script.name) }
                     }
                     Button("Manage scripts…") { openSettings() }
                 }
@@ -217,8 +216,8 @@ struct SessionTabs: View {
         }
         .alert("Close this tab?", isPresented: Binding(get: { closing != nil }, set: { if !$0 { closing = nil } })) {
             Button("Cancel", role: .cancel) { closing = nil }
-            Button("Close", role: .destructive) { if let closing { model.closeTab(closing) }; closing = nil }
-        } message: { Text("Persistent screen sessions detach and stay alive. Nonpersistent sessions terminate.") }
+            Button("Close", role: .destructive) { if let closing { Task { await model.closeTab(closing) } }; closing = nil }
+        } message: { Text("Closing a tab ends its terminal sessions and running commands. Regular Quit keeps persistent sessions alive.") }
     }
     func splitView(_ node: SplitNode, panes: [PaneRecord]) -> AnyView {
         switch node {
@@ -246,7 +245,7 @@ struct TerminalPane: View {
                 Text(session.state).foregroundStyle(.secondary)
                 Button("⌃C") { session.interrupt() }.buttonStyle(.plain).help("Send interrupt")
             }.font(.system(size: 10)).padding(8)
-            EmbeddedTerminal(session: session, path: path, fontSize: model.fontSize, persistent: model.persistent)
+            EmbeddedTerminal(session: session, path: path, fontSize: model.fontSize, persistent: model.usePersistentTerminals)
         }
     }
 }

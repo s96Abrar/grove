@@ -1,29 +1,32 @@
-# Validation — Grove 0.2
+# Validation — Grove 0.3.0
 
-Checks executed on Apple Silicon with Swift 6.4 / Xcode 27.1. This records observations; the feature matrix includes remaining work.
+Local host: Apple Silicon, macOS 27, Swift 6.4 / Xcode 27.1. This records bounded observations, not a claim that every supported system or Supacode feature has been verified.
 
-- Debug compilation passed for the embedded SwiftTerm PTY, screen wrapper, persisted layout models, nested splits, file browser, settings, scripts, palette and CLI/deeplink routing.
-- Final release packaging passed for Grove 0.2, including the worktree-management changes. `codesign --verify --deep --strict`, `plutil -lint` and arm64 Mach-O inspection passed.
-- `Checks/GitCheck.swift` passed against real temporary repositories: discovery, paths with spaces, branch/worktree creation, file isolation, staged diff, invalid/duplicate branch rejection, branch rename, base ref selection, dirty/main worktree removal rejection and clean worktree removal.
-- `Checks/screen_check.py` passed using real PTYs and the system screen backend: interactive command input, daemon survival after detach, and reattachment to the same shell PID. The test creates and tears down only its uniquely named screen session.
-- CLI argument parsing/help passed for open, select, new-worktree, new-tab, split, list and sessions.
-- A bounded source search found no app-owned URLSession, analytics SDK, telemetry client or activation client in `Sources`/`Package.swift`. The settings UI contains explanatory text matching those words. This is a source observation, not a full network capture of user-launched commands.
-- REA inspected the installed Supacode bundle and executable metadata. [Evidence IDs, retained files and limits](REA-FINDINGS.md) are recorded separately.
+## Executed local checks
 
-## Packaged app terminal launch
+- Original vector app icon rendered to a committed 1024px PNG and visually inspected. Packaging generates all standard icon sizes and embeds AppIcon.icns with the correct Info.plist reference.
+- Both arm64 and x86_64 release slices compiled, were merged into a universal Mach-O, and passed lipo/manifest verification.
+- The universal local delivery ZIP was extracted into a fresh directory and passed bundle/version/icon/notices, hardened-runtime signature and architecture checks again.
+- Git fixtures passed discovery, paths with spaces, isolated branch/worktree creation, staged diff, base-ref selection, branch rename, invalid/duplicate branch rejection, main/dirty/ignored-file removal rejection and clean removal. Ignored .env data was retained.
+- Workspace-state fixtures passed JSON round-trip, legacy schema migration, active-tab metadata restoration, invalid pane/layout/schema rejection, last-good backup recovery, unreadable-data preservation and exclusion of one-time startup commands from restored panes.
+- Real PTY/screen checks passed interactive input and shell PID continuity across detach/reattach.
+- The packaged application harness passed termination/relaunch with stable layout IDs, the same live shell PID, no rerun startup command and exactly one matching screen session. It cleans up its own app processes/screen session.
+- Release-policy fixtures passed matching immutable tag handling and rejection of invalid/mismatched tags, dirty source and missing signing/notarization configuration.
+- Actionlint 1.7.12 passed the prepared workflows. Its downloaded macOS binary was verified against the pinned upstream release SHA-256. YAML parsing, immutable action-pin checks, shell syntax and documentation-link checks also passed. No release schedule trigger is present.
 
-The final `dist/Grove.app` was launched using `open -n --env GROVE_VERIFY_PATH=/tmp/grove-ui-check`. Its isolated workspace launched a real SwiftTerm PTY with the screen wrapper and executed a shell command that wrote exactly `interactive-terminal-ready` to the fixture marker. The app reported PID 51694 and main window 8963. [Runtime metadata](evidence/grove-runtime.json) and [marker](evidence/grove-terminal-marker.txt) are retained. No ordinary saved workspace metadata was written by this verification mode.
+Commands: `make check`, `make lint`, and `GROVE_ARCHS="arm64 x86_64" python3 scripts/release.py --mode local`. The consolidated checks can reuse an already built universal bundle with `GROVE_SKIP_BUILD=1 GROVE_RUN_GUI_CHECKS=1 bash scripts/check.sh`.
 
-## Not established
+## Real build failures corrected
 
-Full Supacode feature parity, SSH hosts, coding-agent hook behavior, GitHub credentials/PR mutations, binary notarization and public distribution are not established by these checks. The packaged terminal launch was observed as described above. The full packaged application termination/relaunch check also passed, as recorded below; visual scrollback rendering remains unverified.
+The default Swift 6.4 swiftbuild engine compiled a dependency build-time helper for the destination Intel CPU, which could not run on the host without Rosetta. Explicit minimum-OS triples and SwiftPM's native engine keep build helpers host-native. Per-architecture scratch paths prevent cross-architecture cache collisions, and compiler parallelism defaults to two jobs after a resource-exhaustion error. No Rosetta install or sandbox disable was used. A source edit invalidated one in-flight build; all final application source was built together afterward. See RELEASING.md for the native-engine deprecation/toolchain upgrade caveat.
 
-## REA UI observation limit
+## Release limits
 
-`observe_native_ui` targeted only Grove PID 51694 / window 8963. REA returned `capability_unavailable`, reason `screen-recording-denied`. No screenshot or AX result was obtained, and no broader capture was attempted. [Returned diagnostic](evidence/grove-ui-observation.json). Granting Screen Recording to the REA host is an optional manual prerequisite for visual evidence; it is not needed to run Grove.
+- No valid Developer ID signing identity is available on the current Mac. Apple submission, notarization, stapling, Gatekeeper acceptance of a public signed build and CI signing-key import/cleanup have not been executed. Local output is explicitly ad-hoc, not a public notarized release.
+- No Git remote exists. Hosted CI, protected tag/environment settings and GitHub Release publication are prepared in files but have not run.
+- The Intel slice is built and inspected locally; native Intel execution is delegated to the prepared future CI matrix. Minimum macOS 14 runtime compatibility still requires testing on that OS. The configured hosted toolchain is Xcode 26.6; the current local run used Xcode 27.1.
+- The app harness uses SIGTERM, not the normal menu-Q action. It does not assert visual scrollback, authenticated coding-agent TUIs, every tab-close error path, SSH, forge mutations or full feature parity.
+- REA's earlier exact-window observation was denied Screen Recording permission. No screenshot/AX result or broader capture fallback was obtained. The retained diagnostic and REA packaged-app findings remain in the original local workspace under ignored docs/evidence; they are separate from ordinary harness evidence.
+- A bounded source inspection found no app-owned analytics/telemetry/activation client. It does not establish the network behavior of commands, agents or OS services launched by the user.
 
-## Final packaged app restoration
-
-`python3 Checks/app_relaunch_check.py` passed after fixing the macOS screen-list exit-status edge case. It launched app PID 76345, verified shell PID 76355, terminated that app with SIGTERM, launched app PID 76441 against the same isolated saved workspace, and confirmed the same shell PID remained alive. Layout/tab/pane IDs stayed stable, the startup command did not rerun, and exactly one matching screen session existed. Both app instances and that test's screen session were cleaned up by the harness. [Retained result](evidence/grove-app-relaunch.json).
-
-This proves restoration across app-process termination in this fixture. It does not assert normal menu-Q event delivery, visual scrollback rendering, or an authenticated coding-agent TUI. The final app bundle passed ad-hoc signature verification and Info.plist lint after packaging.
+Git history tracks the baseline and release-hardening source. Generated app bundles, archives, private investigation output and signing material are excluded. No remote was created or pushed.

@@ -1,0 +1,114 @@
+import Foundation
+
+struct PaneRecord: Codable, Identifiable {
+    var id = UUID()
+    var title = "Shell"
+    var command: String? = nil
+    // Startup commands are a one-time user action, never an automatic restore action.
+    enum CodingKeys: String, CodingKey { case id, title }
+}
+struct TabRecord: Codable, Identifiable {
+    var id = UUID()
+    var name = "Terminal"
+    var vertical = true
+    var panes = [PaneRecord()]
+    var layout: SplitNode? = nil
+}
+indirect enum SplitNode: Codable {
+    case pane(UUID)
+    case split(vertical: Bool, first: SplitNode, second: SplitNode)
+    func inserting(_ newID: UUID, after target: UUID, vertical: Bool) -> SplitNode {
+        switch self {
+        case .pane(let id): return id == target ? .split(vertical: vertical, first: self, second: .pane(newID)) : self
+        case .split(let axis, let first, let second): return .split(vertical: axis, first: first.inserting(newID, after: target, vertical: vertical), second: second.inserting(newID, after: target, vertical: vertical))
+        }
+    }
+}
+
+struct ScriptRecord: Codable, Identifiable {
+    var id = UUID()
+    var name: String
+    var command: String
+    var root: String? = nil
+}
+struct SavedWorkspace: Codable {
+    var schemaVersion: Int? = 1
+    var activeTabs: [String: UUID]? = nil
+    var roots: [String] = []
+    var tabs: [String: [TabRecord]] = [:]
+    var pinned: Set<String> = []
+    var archived: Set<String> = []
+    var selected: String? = nil
+    var scripts: [ScriptRecord] = []
+}
+
+
+struct WorkspaceStateError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+extension SavedWorkspace {
+    func validate() throws {
+        func check(_ condition: Bool, _ message: String) throws {
+            if !condition { throw WorkspaceStateError(message: message) }
+        }
+        func absolute(_ path: String) -> Bool { path.hasPrefix("/") && !path.contains("\0") }
+        try check(schemaVersion == nil || schemaVersion == 1, "This workspace was saved by a newer Grove version.")
+        try check(roots.allSatisfy(absolute) && tabs.keys.allSatisfy(absolute), "Workspace paths must be absolute directories.")
+        try check(Set(roots).count == roots.count, "Duplicate workspace roots.")
+        var tabIDs = Set<UUID>(), paneIDs = Set<UUID>()
+        for records in tabs.values {
+            try check(records.count <= 64, "Too many tabs in a workspace.")
+            for tab in records {
+                try check(tabIDs.insert(tab.id).inserted, "Duplicate tab identity.")
+                try check(!tab.panes.isEmpty && tab.panes.count <= 64, "A tab must contain between 1 and 64 panes.")
+                for pane in tab.panes { try check(paneIDs.insert(pane.id).inserted, "Duplicate terminal identity.") }
+                if let layout = tab.layout {
+                    var leaves = [UUID]()
+                    func inspect(_ node: SplitNode, depth: Int) throws {
+                        try check(depth <= 32, "Terminal layout is too deeply nested.")
+                        switch node {
+                        case .pane(let id): leaves.append(id)
+                        case .split(_, let first, let second): try inspect(first, depth: depth + 1); try inspect(second, depth: depth + 1)
+                        }
+                    }
+                    try inspect(layout, depth: 0)
+                    try check(leaves.count == tab.panes.count && Set(leaves) == Set(tab.panes.map(\.id)), "Terminal layout does not match its panes.")
+                }
+            }
+        }
+        try check(Set(scripts.map(\.id)).count == scripts.count, "Duplicate script identity.")
+    }
+}
+
+enum WorkspacePersistence {
+    static let currentKey = "workspace.v2"
+    static let backupKey = "workspace.v2.backup"
+    static let unreadableKey = "workspace.v2.unreadable"
+    static func decode(_ data: Data) throws -> SavedWorkspace {
+        let state = try JSONDecoder().decode(SavedWorkspace.self, from: data)
+        try state.validate()
+        return state
+    }
+    static func load(from defaults: UserDefaults = .standard) throws -> (state: SavedWorkspace, recoveredBackup: Bool)? {
+        guard let data = defaults.data(forKey: currentKey) else { return nil }
+        do { return (try decode(data), false) }
+        catch {
+            defaults.set(data, forKey: unreadableKey)
+            if let backup = defaults.data(forKey: backupKey), let state = try? decode(backup) { return (state, true) }
+            throw error
+        }
+    }
+    static func save(_ state: SavedWorkspace, to defaults: UserDefaults = .standard) throws {
+        try state.validate()
+        let data = try JSONEncoder().encode(state)
+        if let previous = defaults.data(forKey: currentKey), (try? decode(previous)) != nil { defaults.set(previous, forKey: backupKey) }
+        defaults.set(data, forKey: currentKey)
+    }
+    static func reset(in defaults: UserDefaults = .standard) {
+        if let current = defaults.data(forKey: currentKey) { defaults.set(current, forKey: unreadableKey) }
+        defaults.removeObject(forKey: currentKey)
+        defaults.removeObject(forKey: backupKey)
+    }
+}

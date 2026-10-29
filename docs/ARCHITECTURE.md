@@ -2,7 +2,7 @@
 
 This document separates the original implementation from the design needed for Supacode-like coverage. Implementation claims should be checked against [feature coverage](FEATURE-PARITY.md) and [validation](VALIDATION.md). The source reference is pinned in [the investigation](SUPACODE-EVIDENCE.md).
 
-## Current independent implementation (0.2)
+## Current independent implementation (0.3)
 
 `Sources/Grove/Grove.swift` composes SwiftUI windows, sidebar/detail views, worktree creation, change review and terminal tabs. `Workspace.swift` owns selected workspace state, async Git operations, local folder/repository roster, pin/archive sets, scripts, cloning, manual GitHub lookup and deeplink dispatch. `Settings.swift` contains General/Scripts settings and the subsequence command palette. `FileBrowser.swift` provides nonhidden directory navigation and system-default opening.
 
@@ -12,7 +12,7 @@ This document separates the original implementation from the design needed for S
 
 Workspace state is Codable data in UserDefaults `workspace.v2`, with fallback to the original repository root list. It includes roots, selected worktree path, tabs/panes with stable IDs, recursive `SplitNode` layout, pins, archives and script definitions. General preferences, including baseRef and fetchBeforeCreate, use AppStorage. Active tab/pane selection and divider geometry remain transient. Malformed data currently falls back rather than providing complete migration/recovery behavior.
 
-The split view recursively renders horizontal/vertical native split containers. Tab context menus rename or reorder within a worktree. Fixed shortcuts expose indexed worktree jumps and native terminal find. Closing a persistent tab detaches and removes its saved IDs, leaving an orphaned screen session possible. Explicit end-sessions-and-quit targets saved IDs but currently does not surface cleanup failures.
+The split view recursively renders horizontal/vertical native split containers. Tab context menus rename or reorder within a worktree. Fixed shortcuts expose indexed worktree jumps and native terminal find. Confirmed tab closure ends its sessions before removing metadata; ordinary quit preserves persistent shells. Explicit end-sessions-and-quit targets saved IDs but surfaces cleanup failures.
 
 `scripts/grove` is a Python CLI that opens validated action URLs through Launch Services, reads saved metadata through `defaults export`, or delegates session listing to screen. It is not a live app RPC protocol. GitHub integration is opt-in/manual `gh pr view` JSON; no telemetry client is included.
 
@@ -97,3 +97,9 @@ A local ad-hoc signed build is useful for development but is not a notarized dis
 ## Independence and privacy
 
 The user selected an independent implementation. No Supacode source or assets should be copied into Grove. Pinned upstream links document observed requirements, not adopted implementation. Grove excludes analytics and crash-report uploads by design; see [privacy](PRIVACY.md). Feature parity therefore deliberately does not include upstream telemetry.
+
+## Release hardening in 0.3
+
+WorkspaceState.swift holds Foundation-only Codable models, validation and last-good/unreadable snapshot handling. Active tab selection is persisted; pane focus/divider geometry are still separate gaps. Workspace.swift owns async lifecycle/deeplink sequencing and reports cleanup failures. The session cache no longer publishes mutations during SwiftUI view construction.
+
+release.json supplies package version/build/identity. The package builder stages a new bundle, installs all icon resolutions and notices, records source provenance, signs with hardened runtime and verifies before replacing generated output. Public release mode requires a matching clean tag, a Developer ID identity and Apple notarization; local ad-hoc output is labeled separately. No remote or update/telemetry service is introduced. See [Releasing](RELEASING.md).

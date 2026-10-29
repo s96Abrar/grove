@@ -1,0 +1,43 @@
+name: Quality checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      GROVE_RUN_GUI_CHECKS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate workflow syntax and expressions
+        run: bash scripts/lint-workflows.sh
+      - name: Record toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Check, package and exercise actual app
+        run: bash scripts/check.sh
+      - name: Create local delivery archive
+        run: python3 scripts/release.py --mode local
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: Grove-local-${{ matrix.os }}
+          path: dist/releases/
+          if-no-files-found: error
+          retention-days: 14

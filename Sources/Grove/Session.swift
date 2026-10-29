@@ -2,29 +2,6 @@ import AppKit
 import SwiftUI
 import SwiftTerm
 
-struct PaneRecord: Codable, Identifiable {
-    var id = UUID()
-    var title = "Shell"
-    var command: String? = nil
-}
-struct TabRecord: Codable, Identifiable {
-    var id = UUID()
-    var name = "Terminal"
-    var vertical = true
-    var panes = [PaneRecord()]
-    var layout: SplitNode? = nil
-}
-indirect enum SplitNode: Codable {
-    case pane(UUID)
-    case split(vertical: Bool, first: SplitNode, second: SplitNode)
-    func inserting(_ newID: UUID, after target: UUID, vertical: Bool) -> SplitNode {
-        switch self {
-        case .pane(let id): return id == target ? .split(vertical: vertical, first: self, second: .pane(newID)) : self
-        case .split(let axis, let first, let second): return .split(vertical: axis, first: first.inserting(newID, after: target, vertical: vertical), second: second.inserting(newID, after: target, vertical: vertical))
-        }
-    }
-}
-
 @MainActor final class Session: ObservableObject, LocalProcessTerminalViewDelegate {
     let record: PaneRecord
     var id: UUID { record.id }
@@ -56,11 +33,15 @@ indirect enum SplitNode: Codable {
         } else {
             terminal.startProcess(executable: shell, args: args, environment: env.map { "\($0)=\($1)" }, currentDirectory: path)
         }
-        view = terminal; state = "Shell"
+        view = terminal
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.state == "Starting" else { return }
+            self.state = terminal.process.running ? "Shell" : "Exited"
+        }
         return terminal
     }
     func interrupt() { guard let view else { return }; view.send(source: view, data: [3][...]) }
-    func detach() { view?.terminate(); view = nil; state = "Detached" }
+    func detach() { view?.terminate(); state = "Ended" }
     func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
     func setTerminalTitle(source: LocalProcessTerminalView, title: String) { self.title = title }
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}

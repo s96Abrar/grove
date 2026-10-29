@@ -16,6 +16,10 @@ enum Git {
         let process = Process(), pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         process.arguments = ["-C", path] + args
+        process.standardInput = FileHandle.nullDevice
+        var environment = ProcessInfo.processInfo.environment
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        process.environment = environment
         process.standardOutput = pipe
         process.standardError = pipe
         try process.run()
@@ -41,7 +45,7 @@ enum Git {
 
     static func remove(_ tree: Worktree, at root: String) throws {
         guard tree.path != root else { throw CommandError(message: "The main checkout cannot be removed.") }
-        guard try run(["status", "--porcelain", "--untracked-files=all"], at: tree.path).isEmpty else { throw CommandError(message: "This worktree has uncommitted files. Commit or move them before removing it.") }
+        guard try run(["status", "--porcelain", "--untracked-files=all", "--ignored"], at: tree.path).isEmpty else { throw CommandError(message: "This worktree has uncommitted files. Commit or move them before removing it.") }
         _ = try run(["worktree", "remove", "--", tree.path], at: root)
     }
     static func rename(_ branch: String, at path: String) throws {

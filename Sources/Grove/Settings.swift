@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var name = ""
     @State private var command = ""
     @State private var repositoryOnly = false
+    @State private var resetting = false
     var body: some View {
         TabView {
             Form {
@@ -15,6 +16,8 @@ struct SettingsView: View {
                 Text("New terminals attach to a local screen session. Quitting Grove detaches; reopening restores saved panes. Existing panes keep their launch mode.").font(.caption).foregroundStyle(.secondary)
                 TextField("New worktree base ref", text: $model.baseRef)
                 Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
+                if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }
+                Button("Reset Workspace Metadata…", role: .destructive) { resetting = true }
                 Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
                 Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
             }.padding(24).tabItem { Label("General", systemImage: "gear") }
@@ -34,7 +37,10 @@ struct SettingsView: View {
                 }.disabled(name.isEmpty || command.isEmpty)
                 Text("Scripts run only when you choose them, in a new interactive terminal tab.").font(.caption).foregroundStyle(.secondary)
             }.padding(24).tabItem { Label("Scripts", systemImage: "play") }
-        }.frame(width: 560, height: 420)
+        }.frame(width: 560, height: 480)
+        .confirmationDialog("Reset saved repositories, scripts and terminal layouts? Your source files and Git worktrees are kept. Existing persistent sessions are detached.", isPresented: $resetting) {
+            Button("Reset Workspace Metadata", role: .destructive) { model.resetWorkspaceMetadata() }
+        }
     }
 }
 

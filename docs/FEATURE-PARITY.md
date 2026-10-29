@@ -4,14 +4,14 @@ Reference: upstream commit `1ffcc2e93c3f74fe3d52183176542fa8852ad2ba`, inspected
 
 ## Status and evidence
 
-**Implemented** means present in Grove 0.2 source; this is not a blanket claim of executed UI acceptance. **Partial** means the described subset exists. **Missing** means absent from current source. Verification is bounded by [validation](VALIDATION.md). The PTY/screen backend check establishes interactive input and shell PID continuity across detach/reattach, not every app UI lifecycle. Acceptance targets below remain requirements unless separately recorded as passed.
+**Implemented** means present in Grove 0.3 source; this is not a blanket claim of executed UI acceptance. **Partial** means the described subset exists. **Missing** means absent from current source. Verification is bounded by [validation](VALIDATION.md). The PTY/screen backend check establishes interactive input and shell PID continuity across detach/reattach, not every app UI lifecycle. Acceptance targets below remain requirements unless separately recorded as passed.
 
 REA packaged-app observations and source observations are separate. A matching name/version does not establish that the installed app was built from the reference commit. See [investigation](SUPACODE-EVIDENCE.md) and any later retained REA evidence.
 
 
 ## Repository and worktree workflow
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | Local repository picker and remembered repositories | Implemented | [R](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/README.md), [G](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Git/GitClient.swift) | Open a committed local repository, restart, and reopen it without re-adding. |
 | Existing Git worktree discovery, including detached HEAD | Implemented | [G](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Git/GitClient.swift) | Compare the sidebar roster to git worktree list --porcelain -z. |
@@ -32,13 +32,13 @@ REA packaged-app observations and source observations are separate. A matching n
 
 ## Terminal and persistence
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | Concurrent per-worktree command sessions | Implemented — Independent interactive PTY panes replace the original command console. | [R](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/README.md), [T](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/BusinessLogic/WorktreeTerminalManager.swift) | Two long-running commands produce separate output without changing each other’s directory. |
 | Embedded interactive PTY terminal and full-screen TUIs | Implemented — [Session.swift](../Sources/Grove/Session.swift): SwiftTerm PTY, keyboard input and resize; full agent compatibility still needs app UI scenarios. | [T](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/BusinessLogic/WorktreeTerminalManager.swift), [R](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/README.md) | Run shell input, Ctrl-C, resize and an installed coding-agent TUI in-app. |
-| Terminal tabs: create, focus, close, rename and move | Partial — Create/focus/close/rename and left-right reorder within a worktree implemented. Cross-worktree/pane moves missing; persistent close leaves screen session alive. | [TAB](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode-cli/Commands/TabCommand.swift) | Verify interactive tab lifecycle and missing move/rename semantics. |
+| Terminal tabs: create, focus, close, rename and move | Partial — Create/focus/close/rename and left-right reorder within a worktree implemented. Cross-worktree/pane moves missing; confirmed close ends its sessions. | [TAB](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode-cli/Commands/TabCommand.swift) | Verify interactive tab lifecycle and missing move/rename semantics. |
 | Horizontal/vertical splits, nested layout, focus and resize | Partial — Recursive SplitNode with HSplitView/VSplitView and focused-pane split; divider geometry and explicit focus navigation persistence missing. UI acceptance remains unverified. | [L](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/Models/SplitTree.swift) | Create nested splits; each surface keeps its own session and focus. |
-| Persist selected worktree, tabs, panes and layout | Partial — Repository roots, selected worktree, stable tab/pane IDs and recursive layout persist; selected tab/pane and split geometry do not. | [P](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/BusinessLogic/LayoutPersistence.swift) | Restart restores stable IDs, active tab and split geometry. |
+| Persist selected worktree, tabs, panes and layout | Partial — Repository roots, selected worktree, stable tab/pane IDs and recursive layout persist; active tab now persists; pane focus and split geometry do not. | [P](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/BusinessLogic/LayoutPersistence.swift) | Restart restores stable IDs, active tab and split geometry. |
 | Session daemon reattach and retained scrollback across quit | Partial — System screen sessions create detached then attach using pane UUID; backend shell PID continuity passed. Full Grove quit/relaunch and scrollback acceptance remain unverified. | [Z](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Zmx/ZmxClient.swift) | Start a process, quit, relaunch and prove PID/output continuity. |
 | Explicit quit-and-terminate option and busy-close confirmation | Partial — Tab-close confirmation and Quit and End Grove Sessions implemented; teardown targets saved IDs, does not report individual failures or orphan cleanup. Busy-specific policies missing. | [GS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/GlobalSettings.swift), [T](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/BusinessLogic/WorktreeTerminalManager.swift) | Normal quit preserves daemon sessions; explicit teardown terminates owned sessions. |
 | Terminal search and scrollback navigation | Partial — Command-F dispatches native terminal find action; complete search/navigation UI acceptance remains unverified. | [T](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Terminal/BusinessLogic/WorktreeTerminalManager.swift) | Find repeated text and navigate both directions without sending search input to shell. |
@@ -47,7 +47,7 @@ REA packaged-app observations and source observations are separate. A matching n
 
 ## Remote work
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | SSH repository connection and remote worktree management | Missing | [RC](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Repositories/Reducer/RepositoriesFeature+Remote.swift), [R](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/README.md) | Use an owned remote fixture and keep all Git paths on that host. |
 | Shared multiplexed SSH connection and authentication | Missing | [RC](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/Repositories/Reducer/RepositoriesFeature+Remote.swift), [R](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/README.md) | Multiple terminal/Git probes reuse one authenticated connection. |
@@ -55,7 +55,7 @@ REA packaged-app observations and source observations are separate. A matching n
 
 ## Agents and notifications
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | Per-surface agent identity and busy/awaiting-input/idle state | Missing | [A](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/AgentPresence/Reducer/AgentPresenceFeature.swift) | Feed defined hook events; status resolves to the correct surface and task. |
 | Supported-agent hook installation and safe removal | Missing | [A](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Features/AgentPresence/Reducer/AgentPresenceFeature.swift), [GS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/GlobalSettings.swift) | Preserve unrelated agent configuration; remove only owned hook entries. |
@@ -66,7 +66,7 @@ REA packaged-app observations and source observations are separate. A matching n
 
 ## Git, forges and files
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | Selected worktree Git status and combined tracked diff | Implemented | [G](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Git/GitClient.swift) | Staged and unstaged tracked changes appear; untracked paths appear in status. |
 | PR/MR lookup and state per worktree | Partial — Opt-in gh pr view JSON for selected local worktree via palette; no GitLab/MR adapter or sidebar state. | [F](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Forge/ForgeClient.swift), [H](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Forge/GitHub/GithubCLIClient.swift), [I](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/supacode/Clients/Forge/GitLab/GitLabCLIClient.swift) | Use owned test fixtures for GitHub/GitLab; distinguish absent PR from auth failure. |
@@ -78,7 +78,7 @@ REA packaged-app observations and source observations are separate. A matching n
 
 ## Scripts, palette and automation
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | Named global/repository scripts with icon/tint | Partial — Persisted name/command/global-or-repository scope, Scripts menu and settings; icon/tint missing. | [SC](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/ScriptDefinition.swift), [RS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/RepositorySettings.swift), [GS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/GlobalSettings.swift) | Create/edit/run a script and retain its metadata. |
 | Setup/archive/delete lifecycle scripts | Missing | [RS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/RepositorySettings.swift) | Run at the correct lifecycle boundary; failure prevents inappropriate follow-up actions. |
@@ -92,7 +92,7 @@ REA packaged-app observations and source observations are separate. A matching n
 
 ## Settings, app shell and delivery
 
-| Behavior | Grove 0.2 status | Upstream evidence | Acceptance target |
+| Behavior | Grove 0.3 status | Upstream evidence | Acceptance target |
 |---|---|---|---|
 | Global/repository settings, inheritance and schema migrations | Partial — General settings in AppStorage, workspace.v2 in UserDefaults, old roots fallback; full migrations/inheritance/corrupt-data recovery missing. | [GS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/GlobalSettings.swift), [RS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/RepositorySettings.swift) | Round-trip settings, preserve unknown-safe defaults and migrate legacy fields. |
 | Appearance, editor selection and customizable shortcuts | Partial — Dark/light/system preference and fixed shortcuts; configurable editor/shortcuts missing. | [GS](https://github.com/supabitapp/supacode/blob/1ffcc2e93c3f74fe3d52183176542fa8852ad2ba/SupacodeSettingsShared/Models/GlobalSettings.swift) | Change via settings, restart, verify visible and keyboard behavior. |
@@ -116,3 +116,7 @@ For each row, attach the implementing file, one behavior-focused check or clearl
 ### Final restoration evidence
 
 The packaged 0.2 app now has an executed termination/relaunch continuity check: [result](evidence/grove-app-relaunch.json), [harness](../Checks/app_relaunch_check.py). Stable saved layout IDs, the same live shell PID, no rerun startup command and exactly one matching screen session were confirmed. Termination used SIGTERM; visual scrollback and menu-Q remain outside this check. This strengthens the persistence rows without establishing overall Supacode parity.
+
+### Release preparation in 0.3
+
+An original app icon, local Git history, state validation/backup recovery, ignored-file removal protection, active-tab persistence and confirmed session cleanup are implemented. Tag-only CI/release workflows and universal archive/notarization scripts are prepared; hosted execution and public signing remain unverified without a remote/credentials. These additions do not imply automatic updates or full Supacode parity. See [Releasing](RELEASING.md).
