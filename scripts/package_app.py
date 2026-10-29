@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Stage, validate and atomically replace the local app bundle; never alter credentials."""
 import json
-import os
 import pathlib
 import plistlib
 import re
@@ -21,9 +20,6 @@ def main():
         raise SystemExit('release.json must contain a numeric semantic version')
     if not isinstance(config['build'], int) or config['build'] < 1:
         raise SystemExit('Build number must be a positive integer')
-    identity = os.environ.get('GROVE_SIGNING_IDENTITY', '-')
-    if identity != '-' and not re.fullmatch(r'[A-Fa-f0-9]{40}', identity):
-        raise SystemExit('GROVE_SIGNING_IDENTITY must be a certificate SHA-1, not a display name')
     sources = [pathlib.Path(p).resolve(strict=True) for p in sys.argv[1:]]
     if not sources:
         raise SystemExit('Provide at least one compiled Grove executable')
@@ -59,14 +55,9 @@ def main():
         dirty = bool(command('git', '-C', str(ROOT), 'status', '--porcelain'))
         build = dict(version=config['version'], build=config['build'], commit=commit, dirty=dirty,
                      architectures=command('/usr/bin/lipo', '-archs', str(executable)).split(),
-                     swift=command('swift', '--version'), signing='adhoc' if identity == '-' else 'developer-id')
+                     swift=command('swift', '--version'), signing='adhoc')
         (resources / 'BuildInfo.json').write_text(json.dumps(build, indent=2) + '\n')
-        signature = ['/usr/bin/codesign', '--force', '--options', 'runtime', '--sign', identity]
-        if identity != '-':
-            signature.append('--timestamp')
-            if os.environ.get('GROVE_SIGNING_KEYCHAIN'):
-                signature += ['--keychain', os.environ['GROVE_SIGNING_KEYCHAIN']]
-        subprocess.run(signature + [str(app)], check=True)
+        subprocess.run(['/usr/bin/codesign', '--force', '--options', 'runtime', '--sign', '-', str(app)], check=True)
         subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)], check=True)
         previous = staging / 'Previous.app'
         if destination.exists(): destination.rename(previous)

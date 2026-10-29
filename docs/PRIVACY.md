@@ -37,4 +37,4 @@ For verification, inspect dependency manifests and notices, search source for ne
 
 ## Build and release services
 
-Local Git tracking has no remote. Prepared workflows run on a future GitHub remote only after it is added; release jobs contact Apple for notarization and GitHub for artifact/release publication. This is developer-initiated delivery infrastructure, not application telemetry. There are no scheduled release triggers. Signing/API material lives in temporary CI files/keychain and is cleaned up; it is never embedded in the app. See [release policy](RELEASING.md).
+Local Git tracking has no remote. Prepared workflows run on a future GitHub remote only after it is added; release jobs contact GitHub for artifact/release publication and perform no Apple signing/notarization calls. This is developer-initiated delivery infrastructure, not application telemetry. There are no scheduled release triggers. Apple signing/API credentials and keychain import are not part of the release pipeline. See [release policy](RELEASING.md).

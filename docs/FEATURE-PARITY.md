@@ -119,4 +119,4 @@ The packaged 0.2 app now has an executed termination/relaunch continuity check: 
 
 ### Release preparation in 0.3
 
-An original app icon, local Git history, state validation/backup recovery, ignored-file removal protection, active-tab persistence and confirmed session cleanup are implemented. Tag-only CI/release workflows and universal archive/notarization scripts are prepared; hosted execution and public signing remain unverified without a remote/credentials. These additions do not imply automatic updates or full Supacode parity. See [Releasing](RELEASING.md).
+An original app icon, local Git history, state validation/backup recovery, ignored-file removal protection, active-tab persistence and confirmed session cleanup are implemented. Tag-only CI/release workflows and universal ad-hoc archive scripts are prepared; hosted execution remains unverified without a remote. Apple signing/notarization are intentionally excluded by accepted policy, not a feature gap. These additions do not imply automatic updates or full Supacode parity. See [Releasing](RELEASING.md).

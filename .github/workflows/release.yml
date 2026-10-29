@@ -19,27 +19,15 @@ jobs:
       contents: write
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-      GROVE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SHA1 }}
-      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Import isolated signing credentials
-        env:
-          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-        run: bash scripts/ci-signing.sh
-      - name: Build universal, notarize, staple and validate delivery
-        run: python3 scripts/release.py --mode production
+      - name: Build universal ad-hoc release and validate delivery
+        run: python3 scripts/release.py --mode tagged
       - name: Publish validated tagged release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/releases/*/*.zip dist/releases/*/SHA256SUMS dist/releases/*/release-manifest.json --verify-tag --generate-notes --title "Grove $GITHUB_REF_NAME"
-      - name: Remove temporary signing material
-        if: always()
-        run: bash scripts/ci-signing.sh cleanup

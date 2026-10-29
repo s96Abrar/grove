@@ -8,7 +8,7 @@ icon:
 package:
 	python3 scripts/release.py --mode local
 release-preflight:
-	python3 scripts/release.py --mode production --preflight-only
+	python3 scripts/release.py --mode tagged --preflight-only
 
 lint:
 	bash scripts/lint-workflows.sh

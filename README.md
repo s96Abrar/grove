@@ -23,7 +23,7 @@ make package                         # host-architecture local-only ZIP
 GROVE_ARCHS="arm64 x86_64" make package  # universal local-only ZIP
 ```
 
-Local packages have an ad-hoc signature and are not public notarized releases. Public release automation is **tagged only**, with required Developer ID signing, notarization, Gatekeeper assessment and checksum validation. No remote is configured and no hosted CI/release has run. [Release instructions and credential prerequisites](docs/RELEASING.md).
+The accepted release policy intentionally uses ad-hoc signatures and skips Apple signing/notarization. Tagged-only releases still require clean source, universal binaries, bundle/archive validation and checksums. Apple credentials are not a release prerequisite or outstanding issue. No remote is configured and no hosted CI/release has run. [Release policy](docs/RELEASING.md) · [Agent instructions](AGENTS.md).
 
 This is not full Supacode parity. SSH workspaces, agent hooks, notification inbox, full forge controls, pane/divider-state restoration and automatic updates remain tracked in the [feature matrix](docs/FEATURE-PARITY.md).
 

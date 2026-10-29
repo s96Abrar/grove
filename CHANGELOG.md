@@ -10,9 +10,9 @@
 - Active-tab selection is saved; cold-start deeplinks wait for workspace loading.
 - Worktree removal protects ignored files as well as tracked/untracked changes.
 - Local delivery ZIPs with checksums and round-trip validation.
-- Tag-only Developer ID/notarization release pipeline, prepared native-architecture CI and local Git history.
+- Tag-only ad-hoc release pipeline, prepared native-architecture CI and local Git history.
 
-Signing/notarization, hosted CI and public publishing are not yet exercised. No remote exists. See docs/RELEASING.md for prerequisites and remaining validation.
+Apple signing/notarization are intentionally excluded by user policy. Hosted CI and publication have not run; no remote exists. See docs/RELEASING.md for prerequisites and remaining validation.
 
 ## 0.2.0
 

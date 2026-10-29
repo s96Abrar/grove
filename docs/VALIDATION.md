@@ -11,7 +11,7 @@ Local host: Apple Silicon, macOS 27, Swift 6.4 / Xcode 27.1. This records bounde
 - Workspace-state fixtures passed JSON round-trip, legacy schema migration, active-tab metadata restoration, invalid pane/layout/schema rejection, last-good backup recovery, unreadable-data preservation and exclusion of one-time startup commands from restored panes.
 - Real PTY/screen checks passed interactive input and shell PID continuity across detach/reattach.
 - The packaged application harness passed termination/relaunch with stable layout IDs, the same live shell PID, no rerun startup command and exactly one matching screen session. It cleans up its own app processes/screen session.
-- Release-policy fixtures passed matching immutable tag handling and rejection of invalid/mismatched tags, dirty source and missing signing/notarization configuration.
+- Release-policy fixtures cover matching immutable tags, invalid/mismatched tag and dirty-source rejection, and successful tagged preflight without Apple credentials. Earlier rejection tests for missing signing credentials are superseded by the accepted ad-hoc policy.
 - Actionlint 1.7.12 passed the prepared workflows. Its downloaded macOS binary was verified against the pinned upstream release SHA-256. YAML parsing, immutable action-pin checks, shell syntax and documentation-link checks also passed. No release schedule trigger is present.
 
 Commands: `make check`, `make lint`, and `GROVE_ARCHS="arm64 x86_64" python3 scripts/release.py --mode local`. The consolidated checks can reuse an already built universal bundle with `GROVE_SKIP_BUILD=1 GROVE_RUN_GUI_CHECKS=1 bash scripts/check.sh`.
@@ -22,7 +22,7 @@ The default Swift 6.4 swiftbuild engine compiled a dependency build-time helper 
 
 ## Release limits
 
-- No valid Developer ID signing identity is available on the current Mac. Apple submission, notarization, stapling, Gatekeeper acceptance of a public signed build and CI signing-key import/cleanup have not been executed. Local output is explicitly ad-hoc, not a public notarized release.
+- Apple signing, notarization, stapling and Apple trust assessment are intentionally excluded by explicit user policy. Their absence is not an unresolved issue or release blocker. Current and future artifacts are described truthfully as ad-hoc-signed and non-notarized; integrity checks remain required.
 - No Git remote exists. Hosted CI, protected tag/environment settings and GitHub Release publication are prepared in files but have not run.
 - The Intel slice is built and inspected locally; native Intel execution is delegated to the prepared future CI matrix. Minimum macOS 14 runtime compatibility still requires testing on that OS. The configured hosted toolchain is Xcode 26.6; the current local run used Xcode 27.1.
 - The app harness uses SIGTERM, not the normal menu-Q action. It does not assert visual scrollback, authenticated coding-agent TUIs, every tab-close error path, SSH, forge mutations or full feature parity.

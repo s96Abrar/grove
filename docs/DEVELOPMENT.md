@@ -46,7 +46,7 @@ Do not delete a managed checkout using a generic file-manager operation when Git
 
 ## Distribution and updates
 
-The current ad-hoc signature supports local development. Public distribution needs a stable Grove bundle identity, intended architectures, Developer ID signing, notarization/stapling and validation on supported machines. Automatic updates additionally require a Grove-controlled signed feed, update keys and release process. These are real release dependencies, not buttons that can be completed by reusing Supacode’s production services.
+The accepted release policy uses ad-hoc signatures for local and tagged releases. Apple signing/notarization are intentionally excluded and are not readiness blockers. Releases still require stable identity, intended architectures, integrity/archive checks and validation on supported machines. Automatic updates additionally require a Grove-controlled signed feed, update keys and release process. These are real release dependencies, not buttons that can be completed by reusing Supacode’s production services.
 
 Document and preserve license notices for dependencies. The selected direction is independent: do not adopt Supacode code or assets. Retain the MIT license and copyright notices for SwiftTerm and notices required by any resolved transitive dependencies. The independent baseline investigation did not copy Supacode’s implementation or artwork.
 

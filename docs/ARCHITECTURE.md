@@ -92,7 +92,7 @@ Background activity should not create repeated alert dialogs for an unavailable 
 
 ## Distribution
 
-A local ad-hoc signed build is useful for development but is not a notarized distributable release. A production updater needs Grove’s own bundle identity, signing configuration, keys and feeds; upstream infrastructure is not Grove’s release infrastructure. Document dependency notices and preserve upstream license/copyright notices if upstream code is adopted.
+Local and tagged distribution intentionally uses ad-hoc-signed, non-notarized builds under the accepted release policy. A production updater needs Grove’s own bundle identity, signing configuration, keys and feeds; upstream infrastructure is not Grove’s release infrastructure. Document dependency notices and preserve upstream license/copyright notices if upstream code is adopted.
 
 ## Independence and privacy
 
@@ -102,4 +102,4 @@ The user selected an independent implementation. No Supacode source or assets sh
 
 WorkspaceState.swift holds Foundation-only Codable models, validation and last-good/unreadable snapshot handling. Active tab selection is persisted; pane focus/divider geometry are still separate gaps. Workspace.swift owns async lifecycle/deeplink sequencing and reports cleanup failures. The session cache no longer publishes mutations during SwiftUI view construction.
 
-release.json supplies package version/build/identity. The package builder stages a new bundle, installs all icon resolutions and notices, records source provenance, signs with hardened runtime and verifies before replacing generated output. Public release mode requires a matching clean tag, a Developer ID identity and Apple notarization; local ad-hoc output is labeled separately. No remote or update/telemetry service is introduced. See [Releasing](RELEASING.md).
+release.json supplies package version/build/identity. The package builder stages a new bundle, installs all icon resolutions and notices, records source provenance, signs with hardened runtime and verifies before replacing generated output. Tagged release mode requires a matching clean tag, universal architectures and integrity/archive validation. Apple signing/notarization are excluded; manifests distinguish local-adhoc from tagged-adhoc output. No remote or update/telemetry service is introduced. See [Releasing](RELEASING.md).
