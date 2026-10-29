@@ -1,0 +1,36 @@
+# Privacy and external effects
+
+Grove is an independent local macOS application. No Supacode implementation code, assets, telemetry SDK, analytics identity or update infrastructure is adopted. Its terminal renderer dependency is the MIT-licensed SwiftTerm, pinned in `Package.swift` to `e213ebb5cc7005e1b9e4629ae97bf921808f683a`. A compatible workflow does not imply Ghostty configuration compatibility.
+
+## Telemetry policy
+
+Grove does not intentionally collect usage analytics, send crash reports, upload repository contents, or contact a Grove/Supacode telemetry backend. Telemetry is excluded by design, not a disabled tracking feature waiting for opt-in. macOS may independently produce local diagnostic reports according to system settings; those are not Grove network telemetry.
+
+This is a policy plus a bounded implementation observation: current `Sources/Grove` contains Git, screen, shell and opt-in GitHub CLI process launches, UserDefaults storage, directory browsing and Launch Services actions, with no application-owned analytics SDK. New code and dependencies must be checked against this policy before release. This statement does not claim that every command, shell startup file, external coding agent or OS service is network-free.
+
+## Local data
+
+Current Grove stores workspace metadata in UserDefaults `workspace.v2`: repository/folder paths, selected worktree, tab/pane UUIDs, recursive split layout, pins, archives and script names/commands/scopes. AppStorage stores appearance, font size, persistence, GitHub opt-in, worktree base ref and fetch-before-create. Real Git branches/worktree directories are created on disk. Persistent shells and their screen-managed state remain local under the system screen session mechanism. Grove no longer needs external Terminal `.command` launchers. Tab-close can leave detached sessions whose metadata was removed; no automatic retention/deletion policy is implemented. Terminal output can contain secrets printed by user commands. Treat local logs, transcripts, diagnostic bundles and backups as potentially sensitive.
+
+No Grove account is required. Repository files remain at their local paths unless an explicitly run command, agent, remote action or future integration sends them elsewhere.
+
+## External calls and who initiates them
+
+| Action | Possible external destination | Scope |
+|---|---|---|
+| SwiftPM dependency resolution during development | GitHub and dependency-declared package sources | Downloads build dependencies; not runtime app telemetry. Inspect `Package.resolved` and dependency manifests. |
+| Fetching reference source / REA package for this investigation | GitHub / npm registry | Development/investigation tooling, separate from Grove runtime. |
+| Entering a shell command or running a saved script | Any destination that executable chooses | User executable code runs with the user’s permissions; Grove does not restrict its network effects. |
+| Running Codex, Claude or another agent in the terminal | The agent’s configured service endpoints | Agent installation, authentication, data handling and network behavior belong to that agent. |
+| Git fetch/push/clone or repository hooks | Configured Git remotes and hook-selected destinations | Clone is explicit. Optional fetch-before-create (off by default) runs git fetch --prune before creating a worktree; push and other terminal commands are user code. Local status/diff/worktree discovery needs no remote request. |
+| Opt-in manual GitHub lookup | GitHub instance configured for local `gh` authentication | Executes `gh pr view` for the selected worktree on explicit palette action; no automatic PR polling or PR mutation controls. |
+| Future SSH workspace | User-selected SSH host | Document connection reuse and remote command effects when implemented. Not present in the original baseline. |
+| Clicking an external link/opening another app | Chosen URL/application and its own services | Launch Services hands off to the selected external application. |
+
+No automatic updater is implemented. Any future updater must use explicitly documented Grove infrastructure and must not add telemetry as part of update checks.
+
+## Credentials and controls
+
+Grove should use the existing SSH/agent/forge clients’ credential mechanisms and must not copy tokens into workspace metadata or transcripts. Do not paste credentials into commands that save shell history. Review repository lifecycle scripts and shell startup files before running them; they can access the same files and network as ordinary Terminal commands.
+
+For verification, inspect dependency manifests and notices, search source for network/analytics clients, and observe the packaged app with a declared network-capture scenario where available. A source search is a bounded observation and cannot prove that an external executable never contacts a service. Retained REA evidence must state exactly what was observed.

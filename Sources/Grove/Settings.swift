@@ -1,0 +1,99 @@
+import SwiftUI
+import AppKit
+
+struct SettingsView: View {
+    @EnvironmentObject var model: Workspace
+    @State private var name = ""
+    @State private var command = ""
+    @State private var repositoryOnly = false
+    var body: some View {
+        TabView {
+            Form {
+                Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
+                Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
+                Toggle("Keep terminal sessions alive with screen", isOn: $model.persistent)
+                Text("New terminals attach to a local screen session. Quitting Grove detaches; reopening restores saved panes. Existing panes keep their launch mode.").font(.caption).foregroundStyle(.secondary)
+                TextField("New worktree base ref", text: $model.baseRef)
+                Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
+                Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
+                Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
+            }.padding(24).tabItem { Label("General", systemImage: "gear") }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Custom scripts").font(.title2)
+                List {
+                    ForEach(model.saved.scripts) { script in
+                        HStack { VStack(alignment: .leading) { Text(script.name); Text(script.command).font(.caption).foregroundStyle(.secondary) }; Spacer(); Button("Remove") { model.saved.scripts.removeAll { $0.id == script.id }; model.save() } }
+                    }
+                }
+                TextField("Script name", text: $name)
+                TextField("Shell command", text: $command)
+                Toggle("Only for the selected repository", isOn: $repositoryOnly)
+                Button("Add script") {
+                    model.saved.scripts.append(ScriptRecord(name: name, command: command, root: repositoryOnly ? model.selected.flatMap { model.root(for: $0) } : nil))
+                    model.save(); name = ""; command = ""
+                }.disabled(name.isEmpty || command.isEmpty)
+                Text("Scripts run only when you choose them, in a new interactive terminal tab.").font(.caption).foregroundStyle(.secondary)
+            }.padding(24).tabItem { Label("Scripts", systemImage: "play") }
+        }.frame(width: 560, height: 420)
+    }
+}
+
+struct PaletteView: View {
+    @EnvironmentObject var model: Workspace
+    @State private var query = ""
+    @State private var branch = ""
+    @State private var cloneURL = ""
+    @State private var creating = false
+    @State private var cloning = false
+    struct Action: Identifiable { var id: String { name }; let name: String; let icon: String; let run: () -> Void }
+    var actions: [Action] {
+        var result = [
+            Action(name: "Add folder or repository", icon: "folder.badge.plus", run: { model.open() }),
+            Action(name: "New terminal tab", icon: "terminal", run: { model.addTab() }),
+            Action(name: "Create worktree…", icon: "arrow.triangle.branch", run: { creating = true }),
+            Action(name: "Clone repository…", icon: "square.and.arrow.down", run: { cloning = true }),
+            Action(name: "Refresh repositories", icon: "arrow.clockwise", run: { Task { await model.reload() } }),
+            Action(name: "Refresh GitHub pull request", icon: "arrow.triangle.pull", run: { Task { await model.refreshPR() } })
+        ]
+        for root in model.roots {
+            for tree in model.trees[root] ?? [] { result.append(Action(name: "Go to \(URL(fileURLWithPath: root).lastPathComponent) / \(tree.branch)", icon: "arrow.triangle.branch", run: { model.select(tree) })) }
+        }
+        for script in model.saved.scripts.filter({ $0.root == nil || $0.root == model.selected.flatMap({ model.root(for: $0) }) }) { result.append(Action(name: "Run script: \(script.name)", icon: "play", run: { model.addTab(command: script.command, name: script.name) })) }
+        return result.filter { query.isEmpty || Self.matches(query, in: $0.name) }
+    }
+    static func matches(_ needle: String, in haystack: String) -> Bool {
+        var remaining = haystack.lowercased()[...]
+        for character in needle.lowercased() {
+            guard let index = remaining.firstIndex(of: character) else { return false }
+            remaining = remaining[remaining.index(after: index)...]
+        }
+        return true
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Where do you want to go?", text: $query).font(.title3).textFieldStyle(.plain).onSubmit { executeFirst() }
+            Divider()
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(actions) { action in
+                        Button { action.run(); if !creating && !cloning { model.palette = false } } label: { HStack { Label(action.name, systemImage: action.icon); Spacer(); Image(systemName: "return") }.padding(10).contentShape(Rectangle()) }.buttonStyle(.plain)
+                    }
+                }
+            }
+            if creating {
+                TextField("New branch name", text: $branch)
+                Button("Create worktree") { Task { await model.create(branch) }; model.palette = false }.disabled(branch.isEmpty)
+            }
+            if cloning {
+                TextField("HTTPS or SSH Git URL", text: $cloneURL)
+                Button("Choose destination and clone…") {
+                    let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
+                    if panel.runModal() == .OK, let parent = panel.url { Task { await model.clone(cloneURL, to: parent) }; model.palette = false }
+                }.disabled(cloneURL.isEmpty)
+            }
+            if !model.pullRequest.isEmpty { ScrollView { Text(model.pullRequest).font(.system(size: 11, design: .monospaced)).textSelection(.enabled) }.frame(height: 100) }
+            HStack { Text("GROVE COMMANDS").font(.caption2).foregroundStyle(.secondary); Spacer(); Button("Done") { model.palette = false }.keyboardShortcut(.cancelAction) }
+        }.padding(20).frame(width: 560, height: 420)
+    }
+    func executeFirst() { if let action = actions.first { action.run(); if !creating && !cloning { model.palette = false } } }
+}

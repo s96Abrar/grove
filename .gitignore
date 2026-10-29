@@ -1,0 +1,16 @@
+.build/
+dist/
+.DS_Store
+# Generated releases, checks and local investigation evidence
+build/
+output/
+.swiftpm/
+docs/evidence/
+__pycache__/
+*.pyc
+# Local credentials and signing material
+.env
+.env.*
+*.p12
+*.p8
+*.keychain-db
