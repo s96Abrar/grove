@@ -51,6 +51,7 @@ try:
                   limits=['Application termination used SIGTERM, not a menu action.',
                           'No screenshot, visual TUI, agent authentication or scrollback rendering assertion.'])
     evidence = app.parents[1] / 'docs' / 'evidence' / 'grove-app-relaunch.json'
+    evidence.parent.mkdir(parents=True, exist_ok=True)
     evidence.write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result, indent=2))
 finally:
