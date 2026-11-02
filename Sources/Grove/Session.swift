@@ -20,7 +20,7 @@ import Darwin
         terminal.nativeBackgroundColor = NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.06, alpha: 1)
         var env = ProcessInfo.processInfo.environment
         env.merge(record.environment) { _, new in new }
-        env["TERM"] = "xterm-256color"
+        env = PersistentTerminal.environment(env)
         env["GROVE_PANE_ID"] = id.uuidString
         env["GROVE_WORKTREE_PATH"] = path
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + (env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
@@ -32,9 +32,7 @@ import Darwin
         }
         if persistent {
             let name = "grove-" + id.uuidString
-            let quote: (String) -> String = { "'" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-            let launch = ([shell] + args).map(quote).joined(separator: " ")
-            let wrapper = "if ! /usr/bin/screen -list " + name + " 2>/dev/null | /usr/bin/grep -Fq " + quote("." + name) + "; then /usr/bin/screen -U -dmS " + name + " -h 10000 " + launch + "; fi; exec /usr/bin/screen -U -D -r " + name
+            let wrapper = PersistentTerminal.wrapper(name: name, path: path, launch: [shell] + args)
             terminal.startProcess(executable: "/bin/zsh", args: ["-c", wrapper], environment: env.map { "\($0)=\($1)" }, currentDirectory: path)
         } else {
             terminal.startProcess(executable: shell, args: args, environment: env.map { "\($0)=\($1)" }, currentDirectory: path)

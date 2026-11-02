@@ -7,15 +7,16 @@ An independent native macOS coding workspace: embedded interactive terminals, Gi
 Build and open locally:
 
 ```sh
+brew install tmux
 make build
 open dist/Grove.app
 ```
 
-Development needs macOS, Xcode with Swift 6.2+, Python 3.9+, system Git and screen. The app targets macOS 14+; supported-version runtime testing remains part of the release checklist. Python is not needed by the main app, but is needed for build/release tooling and the optional CLI. Coding agents are installed and authenticated separately.
+Development needs macOS, Xcode with Swift 6.2+, Python 3.9+, system Git and tmux for persistent sessions. System screen is used only to reconnect legacy sessions. The app targets macOS 14+; supported-version runtime testing remains part of the release checklist. Python is not needed by the main app, but is needed for build/release tooling and the optional CLI. Coding agents are installed and authenticated separately.
 
 Use Command-O to add a repository/folder, Command-N to create a worktree, Shift-Command-T for a terminal tab, and Shift-Command-P for commands. Tabs support interactive shells/agents, nested splits, rename/reorder, terminal search and saved active-tab selection. Custom scripts, pin/archive controls, file browsing, tracked Git diffs and opt-in manual GitHub lookup are included. Branch rename and guarded removal are in the worktree context menu.
 
-Screen-backed sessions survive ordinary app termination and reattach to the same shell. Confirmed **tab closure ends that tab's sessions**. Ordinary Quit preserves persistent sessions; “Quit and End Grove Sessions” stops saved sessions. Workspace metadata is validated and backed up before replacement, with corrupt data preserved for recovery. A Settings reset clears workspace metadata without deleting repositories/worktrees.
+Tmux-backed sessions survive ordinary app termination and reattach to the same shell. Existing live screen sessions are preserved until explicitly closed; new persistent panes use tmux. Confirmed **tab closure ends that tab's sessions**. Ordinary Quit preserves persistent sessions; “Quit and End Grove Sessions” stops saved sessions. Workspace metadata is validated and backed up before replacement, with corrupt data preserved for recovery. A Settings reset clears workspace metadata without deleting repositories/worktrees.
 
 ```sh
 make check                           # checks plus isolated GUI app restart

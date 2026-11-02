@@ -9,8 +9,11 @@ struct SettingsView: View {
             Form {
                 Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
                 Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
-                Toggle("Keep terminal sessions alive with screen", isOn: $model.persistent)
-                Text("New terminals attach to a local screen session. Quitting Grove detaches; reopening restores saved panes. Existing panes keep their launch mode.").font(.caption).foregroundStyle(.secondary)
+                Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
+                Text("New terminals use Grove’s own tmux server. Quit detaches; reopening restores sessions. Existing screen sessions stay attached until closed.").font(.caption).foregroundStyle(.secondary)
+                if PersistentTerminal.tmux == nil {
+                    Text("Install tmux for persistent terminals: brew install tmux").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                }
                 TextField("New worktree base ref", text: $model.baseRef)
                 Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
                 if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }

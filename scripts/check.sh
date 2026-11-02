@@ -11,7 +11,9 @@ build/checks/script-check
 swiftc Sources/Grove/OpenTarget.swift Checks/OpenTargetCheck.swift -o build/checks/open-target-check
 build/checks/open-target-check
 python3 Checks/release_policy_check.py
+swiftc Sources/Grove/WorkspaceState.swift Sources/Grove/PersistentTerminal.swift Checks/TerminalBackendProbe.swift -o build/checks/terminal-backend-probe
 python3 Checks/screen_check.py
+python3 Checks/tmux_check.py
 scripts/grove --help >/dev/null
 if [ "${GROVE_SKIP_BUILD:-0}" != "1" ]; then bash scripts/build-app.sh; fi
 python3 scripts/verify_app.py

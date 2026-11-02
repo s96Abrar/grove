@@ -4,7 +4,7 @@
 
 ## Reproduce local checks
 
-Run from the repository root on macOS with Xcode’s command-line tools:
+Run from the repository root on macOS with Xcode’s command-line tools and tmux installed (`brew install tmux`):
 
 ```sh
 swift build
@@ -83,3 +83,7 @@ Manual UI scenario: import this repo's `grove.json` through Settings → Scripts
 ## Repository disclosure
 
 `StateCheck` round-trips collapsed repository paths and verifies old workspace metadata without the field still loads with expanded defaults. Manual UI check: collapse one repository, leave another expanded, relaunch, and verify their states. The selected terminal should continue running when its heading is collapsed. Search for a branch in a collapsed repository: matches should appear; clearing the query should restore the saved collapsed state. Disclosure controls also apply to plain folders.
+
+## Tmux and Gemini compatibility
+
+`scripts/check.sh` compiles `TerminalBackendProbe` against the actual `PersistentTerminal` implementation. `Checks/tmux_check.py` runs that wrapper through a PTY and checks real input, no GNU screen context, tmux-256color, Ctrl-B passthrough, stable shell PID on reattach, unique sessions, per-pane context on the shared server, exact-session cleanup with a live sibling, and legacy screen reattachment without replacing its shell. Its early legacy detach fixture needed PTY output draining before waiting for process exit; the corrected complete fixture passed. The packaged-app relaunch check now verifies tmux ownership and absence of STY. No authenticated Gemini session, full visual rendering or all keyboard combinations are claimed; the warning's installed detector is documented in [terminal compatibility](TERMINAL-COMPATIBILITY.md).

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import plistlib
+import shutil
 import subprocess
 import urllib.parse
 
@@ -26,6 +27,9 @@ if args.action == 'list':
         values = plistlib.loads(result.stdout)
         print(json.dumps(json.loads(values.get('workspace.v2', b'{}')), indent=2))
 elif args.action == 'sessions':
+    tmux = shutil.which('tmux') or next((p for p in ['/opt/homebrew/bin/tmux', '/usr/local/bin/tmux'] if os.access(p, os.X_OK)), None)
+    if tmux:
+        subprocess.run([tmux, '-L', 'grove', 'list-sessions'], env={k: v for k, v in os.environ.items() if k not in ['TMUX', 'TMUX_TMPDIR']})
     subprocess.run(['/usr/bin/screen', '-list'])
 else:
     values = {key: value for key, value in vars(args).items() if key != 'action'}

@@ -2,7 +2,7 @@
 
 ## Build requirements
 
-The original implementation targeted macOS 14+ with Swift tools 5.9+ and system Git. The expanded package now declares Swift tools 6.2 and the MIT SwiftTerm dependency pinned to revision `e213ebb5cc7005e1b9e4629ae97bf921808f683a`; consult `Package.swift` for current inputs. The recorded local build used Swift 6.4 / Xcode 27.1 on Apple Silicon. New dependency requirements must be recorded when introduced. `Package.swift` and any resolved package lockfile are the authoritative dependency inputs.
+The original implementation targeted macOS 14+ with Swift tools 5.9+ and system Git. The expanded package now declares Swift tools 6.2 and the MIT SwiftTerm dependency pinned to revision `e213ebb5cc7005e1b9e4629ae97bf921808f683a`; consult `Package.swift` for current inputs. The recorded local build used Swift 6.4 / Xcode 27.1 on Apple Silicon. Persistent terminals now require an installed tmux executable (`brew install tmux`); tested locally with tmux 3.8. It is not bundled. New dependency requirements must be recorded when introduced. `Package.swift` and any resolved package lockfile are the authoritative dependency inputs.
 
 From the project root:
 
@@ -20,7 +20,7 @@ A package build is not a packaged-app launch check. Use [testing](TESTING.md) an
 
 Current workspace state is JSON-encoded Codable data in the application’s UserDefaults `workspace.v2` key. It includes roots, selected worktree, tabs/panes, recursive split layout, pins, archives and scripts. Appearance/font/persistence/GitHub opt-in and base-ref/fetch-before-create preferences use AppStorage. WorkspaceState.swift validates saved data and retains a last-good backup plus unreadable metadata. Corruption without a valid backup blocks saves until confirmed recovery. The original repositories key is used only when there is no v2 state.
 
-New Git checkouts live under a sibling `.grove-worktrees/<repository>/` directory. Persistent terminal shells run in system screen sessions named `grove-<pane UUID>`. Screen retention is separate from saved app metadata: confirmed tab closure ends its screen session before removing metadata. Use `screen -list` to inspect such orphans; end only deliberately identified sessions. Grove’s explicit end-sessions-and-quit action targets saved IDs and surfaces cleanup failures.
+New Git checkouts live under a sibling `.grove-worktrees/<repository>/` directory. New persistent terminal shells run on the isolated `tmux -L grove` server in sessions named `grove-<pane UUID>`. Daemon retention is separate from saved app metadata: confirmed tab closure ends its owned tmux/legacy screen sessions before removing metadata. Use `tmux -L grove list-sessions` or legacy `screen -list` to inspect orphans; end only deliberately identified sessions. Grove’s explicit end-sessions-and-quit action targets saved IDs and surfaces cleanup failures.
 
 Git probes read local state; worktree creation changes refs/checkouts. Optional fetch-before-create runs git fetch --prune against configured remotes. Branch rename changes a ref. Confirmed clean worktree removal deletes its checkout, preserves the branch and clears its saved workspace metadata; main/dirty checks precede removal. Clone contacts the provided Git remote. Optional manual GitHub lookup invokes local authenticated `gh`. User commands/scripts and shell startup files run with the user’s permissions and may access files or network. See [privacy](PRIVACY.md).
 
@@ -33,8 +33,8 @@ Do not delete a managed checkout using a generic file-manager operation when Git
 | Swift build cannot write compiler/SwiftPM cache | Inspect the actual sandbox/cache failure; grant required build access through the host approval flow. |
 | New branch fails | Inspect the Git error; a Git repository needs a commit and a valid, unused branch name. Plain folders cannot create worktrees. |
 | Created directory is not selected | Compare Git’s canonical path to app identity; macOS `/var` and `/private/var` aliases need consistent handling. |
-| Embedded pane reports launch failure | Check `/usr/bin/screen`, shell configuration and reported process failure. Disable persistence for a new test pane to isolate daemon behavior. |
-| Terminal appears detached or already attached | Inspect the exact `grove-<pane UUID>` session; persistence uses screen detach/reattach, not command replay. Avoid terminating other users’ sessions. |
+| Embedded pane reports launch failure | Check the installed tmux executable, bundled tmux.conf, legacy `/usr/bin/screen`, shell configuration and reported process failure. Disable persistence for a new test pane to isolate daemon behavior. |
+| Terminal appears detached or already attached | Inspect the exact `grove-<pane UUID>` session; persistence uses tmux (or existing legacy screen) detach/reattach, not command replay. Avoid terminating other users’ sessions. |
 | Closing a tab leaves a process | Confirmed close in 0.3 ends that tab’s sessions; older versions may have left detached sessions. Use exact-session cleanup deliberately. |
 | Agent unavailable | Check installed executable and login-shell PATH. Grove adds common Homebrew/local directories but does not install/authenticate agents. |
 | Untracked file has no diff | Expected: untracked paths are status entries, not tracked diff contents. |

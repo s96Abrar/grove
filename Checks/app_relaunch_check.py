@@ -2,6 +2,7 @@
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,9 @@ import time
 app = pathlib.Path(__file__).resolve().parents[1] / 'dist' / 'Grove.app'
 root = pathlib.Path(tempfile.mkdtemp(prefix='grove-app-relaunch-'))
 env = dict(os.environ, GROVE_VERIFY_PATH=str(root))
+tmux = shutil.which('tmux') or next((p for p in ['/opt/homebrew/bin/tmux', '/usr/local/bin/tmux'] if os.access(p, os.X_OK)), None)
+assert tmux, 'Install tmux with brew install tmux'
+env = {k: v for k, v in env.items() if k not in ['STY', 'TMUX', 'TMUX_PANE', 'TMUX_TMPDIR']}
 process = None
 state = None
 
@@ -43,11 +47,13 @@ try:
     second_state = json.loads((root / 'grove-test-state.json').read_text())
     assert state['tabs'] == second_state['tabs'], 'Layout IDs changed'
     pane = next(iter(state['tabs'].values()))[0]['panes'][0]['id']
-    listed = subprocess.run(['/usr/bin/screen', '-list', 'grove-' + pane], capture_output=True)
-    assert listed.stdout.count(('.grove-' + pane).encode()) == 1, 'Duplicate session created'
+    listed = subprocess.run([tmux, '-L', 'grove', 'list-sessions', '-F', '#{session_name}'], env=env, capture_output=True, text=True, check=True)
+    assert listed.stdout.splitlines().count('grove-' + pane) == 1, 'Duplicate session created'
+    assert (root / 'screen-env').read_text() == '', 'Gemini GNU screen warning would trigger'
+    assert (root / 'tmux-env').read_text(), 'Persistent shell did not run in tmux'
     result = dict(result='pass', first_app_pid=first_app, second_app_pid=process.pid,
                   shell_pid=first_shell, fixture=str(root), stable_layout=True,
-                  startup_command_reran=False, matching_screen_sessions=1,
+                  startup_command_reran=False, matching_tmux_sessions=1, no_gnu_screen_context=True,
                   limits=['Application termination used SIGTERM, not a menu action.',
                           'No screenshot, visual TUI, agent authentication or scrollback rendering assertion.'])
     evidence = app.parents[1] / 'docs' / 'evidence' / 'grove-app-relaunch.json'
@@ -62,4 +68,4 @@ finally:
         for tabs in state['tabs'].values():
             for tab in tabs:
                 for pane in tab['panes']:
-                    subprocess.run(['/usr/bin/screen', '-S', 'grove-' + pane['id'], '-X', 'quit'], capture_output=True)
+                    subprocess.run([tmux, '-L', 'grove', 'kill-session', '-t', '=grove-' + pane['id']], env=env, capture_output=True)

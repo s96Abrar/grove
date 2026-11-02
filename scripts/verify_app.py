@@ -18,7 +18,7 @@ for key, expected in [('CFBundleShortVersionString', config['version']), ('CFBun
                       ('CFBundleIdentifier', config['bundle_identifier']), ('CFBundleIconFile', 'AppIcon')]:
     if info.get(key) != expected: raise SystemExit(f'Wrong {key}: {info.get(key)}')
 for relative in ['Contents/MacOS/Grove', 'Contents/Resources/AppIcon.icns', 'Contents/Resources/LICENSE',
-                 'Contents/Resources/Notices/SwiftTerm-LICENSE.txt', 'Contents/Resources/BuildInfo.json']:
+                 'Contents/Resources/tmux.conf', 'Contents/Resources/Notices/SwiftTerm-LICENSE.txt', 'Contents/Resources/BuildInfo.json']:
     if not (app / relative).is_file(): raise SystemExit('Missing bundle file: ' + relative)
 subprocess.run(['/usr/bin/plutil', '-lint', str(app / 'Contents' / 'Info.plist')], check=True)
 subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)], check=True)

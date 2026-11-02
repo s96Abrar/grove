@@ -27,6 +27,8 @@ jobs:
           persist-credentials: false
       - name: Validate workflow syntax and expressions
         run: bash scripts/lint-workflows.sh
+      - name: Install persistent terminal dependency
+        run: brew list tmux >/dev/null 2>&1 || brew install tmux
       - name: Record toolchain
         run: |
           xcodebuild -version

@@ -30,7 +30,7 @@ import AppKit
             else {
                 saved.roots = [path]
                 let marker = path + "/grove-terminal-marker"
-                let command = "printf 'interactive-terminal-ready' > " + Shell.quote(marker) + "; printf '%s' $PPID > " + Shell.quote(path + "/shell-pid")
+                let command = "printf 'interactive-terminal-ready' > " + Shell.quote(marker) + "; printf '%s' $PPID > " + Shell.quote(path + "/shell-pid") + "; printf '%s' \"${STY-}\" > " + Shell.quote(path + "/screen-env") + "; printf '%s' \"${TMUX-}\" > " + Shell.quote(path + "/tmux-env")
                 saved.tabs[path] = [TabRecord(name: "Verification", panes: [PaneRecord(command: command)])]
             }
             return
@@ -238,10 +238,7 @@ import AppKit
     }
     func endSession(_ id: UUID) async throws {
         let name = "grove-" + id.uuidString
-        try await Task.detached {
-            let listing = try Shell.run("/usr/bin/screen", ["-list", name], at: "/", allowFailure: true)
-            if listing.contains("." + name) { _ = try Shell.run("/usr/bin/screen", ["-S", name, "-X", "quit"], at: "/") }
-        }.value
+        try await Task.detached { try PersistentTerminal.end(name: name) }.value
         if sessions[id] == nil, let record = saved.tabs.values.flatMap({ $0 }).flatMap({ $0.panes }).first(where: { $0.id == id }) {
             sessions[id] = Session(record)
         }

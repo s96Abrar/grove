@@ -26,11 +26,16 @@ Workspace metadata saves tab/pane IDs and recursive split orientation/layout. Th
 
 ## Persistence and session cleanup
 
-Settings enables **Keep terminal sessions alive with screen** by default. A persistent pane creates a detached `screen` session named `grove-<pane UUID>` if none exists, then attaches to it. When that pane is recreated, it can attach to the existing shell rather than replay a command. Existing panes retain their launch mode when the setting changes.
+Settings enables **Keep terminal sessions alive with tmux** by default. Install the runtime dependency with `brew install tmux`. It is installed separately and is not bundled in Grove. New persistent panes use the private `tmux -L grove` server, a session named `grove-<pane UUID>`, and Grove's bundled configuration. The configuration disables tmux's status bar/prefix, selects `tmux-256color` and enables truecolor. Personal tmux sessions and `~/.tmux.conf` are kept separate. If tmux cannot be found, new persistent launches explain how to install it; disabling persistence starts direct PTY shells which do not survive quitting.
 
-Closing a tab prompts first and ends its sessions. If cleanup fails, Grove reports the error and keeps the tab metadata. Ordinary Quit preserves persistent shells. **Workspace → Quit and End Grove Sessions…** confirms and ends saved sessions, reporting failures. Earlier versions may have left detached orphan sessions; inspect exact IDs using the CLI or screen before ending any manually:
+**Gemini CLI:** new tmux-backed tabs avoid the GNU screen compatibility warning. Reopen the rebuilt Grove app, create a fresh terminal tab, then run `gemini` there. Existing live screen sessions reattach with their original processes; they retain screen's compatibility limits and warning until deliberately closed. Save/finish that work before closing old tabs. Grove does not restart running agents or replay startup commands to migrate them. See [terminal compatibility evidence](TERMINAL-COMPATIBILITY.md).
+
+Closing a tab prompts first and ends only its owned sessions, across tmux or legacy screen. Closing an individual split ends only that pane. Cleanup failure retains metadata and reports an error. Ordinary Quit preserves persistent shells. **Workspace → Quit and End Grove Sessions…** confirms and ends saved sessions. Inspect exact IDs before manual cleanup:
 
 ```sh
+tmux -L grove list-sessions
+tmux -L grove kill-session -t '=grove-EXACT-PANE-UUID'
+# Legacy sessions only:
 /usr/bin/screen -S grove-EXACT-PANE-UUID -X quit
 ```
 
@@ -48,7 +53,7 @@ Scripts have a type, editable name, multiline command, icon, color and global or
 
 For this project, select Grove's repository and choose **Import grove.json…** in Settings → Scripts. Review the commands, then confirm. The checked-in file provides **Build Grove** (`make build`, the primary Run script), **Check Grove** (`make check`), **Lint workflows** (`make lint`) and **Generate app icon** (`make icon`). Import replaces only that repository's saved scripts, preserving other repositories and globals. Reimporting does not append duplicates. Opening a repository never imports or executes its file automatically. The file is read from the registered repository root, not a selected linked worktree. See [grove.json](../grove.json) for the version-1 format: each script requires a UUID `id`, `name` and `command`; `kind`, `icon` and `tint` are optional. File-supplied `root` values are ignored and scope is assigned to the selected repository. Unsupported versions, duplicate IDs, malformed JSON, symlinks/special files and files over 1 MB are rejected.
 
-Running a script opens one interactive terminal tab per script/worktree pair; choosing it again selects that tab. Output includes `[Grove script exited: N]` before returning to a login shell, including when the command uses `exit`. **Stop** ends that tab's screen session/foreground PTY group, including its splits. **Restart** stops the old tab and starts the current saved command in a fresh tab. These actions affect the whole script tab, including commands you started there afterward. Interrupt with the pane's **⌃C** button when you want to keep the terminal. Commands which deliberately daemonize or ignore termination may need their own shutdown command.
+Running a script opens one interactive terminal tab per script/worktree pair; choosing it again selects that tab. Output includes `[Grove script exited: N]` before returning to a login shell, including when the command uses `exit`. **Stop** ends that tab's persistent sessions/foreground PTY groups, including its splits. **Restart** stops the old tab and starts the current saved command in a fresh tab. These actions affect the whole script tab, including commands you started there afterward. Interrupt with the pane's **⌃C** button when you want to keep the terminal. Commands which deliberately daemonize or ignore termination may need their own shutdown command.
 
 Commands start in the selected worktree and inherit the login-shell environment, plus `GROVE_WORKTREE_PATH`, `GROVE_ROOT_PATH`, `GROVE_BRANCH`, `GROVE_PANE_ID`, `GROVE_TAB_ID` and `GROVE_SCRIPT_ID` on script launch. Definitions, ordering and tab/script identities persist locally. Startup commands and their launch environment are excluded from saved pane metadata: reopening reattaches a surviving session, or starts a shell without replaying the command if the daemon is gone. Use **Restart** to explicitly run it again. Existing scripts migrate with their names, commands and scopes intact.
 
@@ -79,7 +84,7 @@ python3 scripts/grove list
 python3 scripts/grove sessions
 ```
 
-Supported actions are `open`, `select`, `new-worktree`, `new-tab`, `split`, `list` and `sessions`. Mutation commands use the `grove://` URL scheme. When invoked inside a Grove pane, the CLI supplies `GROVE_WORKTREE_PATH` context; otherwise actions use the app selection. Split actions currently target the selected worktree’s last saved tab, not necessarily the visually active tab. `list` reads saved workspace metadata, not authoritative live state. `sessions` delegates to screen’s complete session list, which may include non-Grove sessions. App IPC queries, complete pane/tab commands and full repo/tab/surface contextual defaults are not implemented. Deeplinks do not accept arbitrary shell commands.
+Supported actions are `open`, `select`, `new-worktree`, `new-tab`, `split`, `list` and `sessions`. Mutation commands use the `grove://` URL scheme. When invoked inside a Grove pane, the CLI supplies `GROVE_WORKTREE_PATH` context; otherwise actions use the app selection. Split actions currently target the selected worktree’s last saved tab, not necessarily the visually active tab. `list` reads saved workspace metadata, not authoritative live state. `sessions` lists the Grove tmux server and then the legacy screen list (which may include non-Grove screen sessions). App IPC queries, complete pane/tab commands and full repo/tab/surface contextual defaults are not implemented. Deeplinks do not accept arbitrary shell commands.
 
 See [privacy](PRIVACY.md), [development](DEVELOPMENT.md) and [testing](TESTING.md) for storage, external effects and verification boundaries.
 
@@ -89,4 +94,4 @@ The active tab is now remembered. Workspace saves retain the previous valid snap
 
 Confirmed tab closure now ends that tab’s sessions and running commands. Regular Quit keeps persistent sessions alive; Quit and End Grove Sessions stops saved sessions and reports failures. Worktree removal also refuses ignored files such as .env. App packaging and tagged release instructions are in [Releasing](RELEASING.md).
 
-Startup commands for a script tab run once when you choose the script. They are not persisted as automatic restore commands. A surviving screen session keeps its original process; if that session is gone, restoration opens a shell instead of silently repeating a build/deployment command. Saved script definitions remain in the Scripts menu for explicit reruns.
+Startup commands for a script tab run once when you choose the script. They are not persisted as automatic restore commands. A surviving persistent session keeps its original process; if that session is gone, restoration opens a shell instead of silently repeating a build/deployment command. Saved script definitions remain in the Scripts menu for explicit reruns.

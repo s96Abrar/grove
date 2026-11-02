@@ -40,6 +40,7 @@ def main():
         executable.chmod(0o755)
         shutil.copytree(ROOT / 'Notices', resources / 'Notices')
         shutil.copyfile(ROOT / 'LICENSE', resources / 'LICENSE')
+        shutil.copyfile(ROOT / 'Resources' / 'tmux.conf', resources / 'tmux.conf')
         shutil.copyfile(ROOT / 'scripts' / 'grove', resources / 'grove')
         (resources / 'grove').chmod(0o755)
         subprocess.run(['bash', str(ROOT / 'scripts' / 'build-icon.sh'), str(staging / 'AppIcon.iconset'), str(resources / 'AppIcon.icns')], check=True)

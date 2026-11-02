@@ -21,3 +21,5 @@ The feature matrix describes current source capabilities and explicitly retains 
 Raw REA and runtime evidence under docs/evidence is generated locally and excluded from Git because it can include local paths and packaged third-party configuration. Links to those files apply to the inspected workspace. CI runs regenerate their own check results; evidence is not included in delivery app archives.
 
 - [Supacode scripts: source evidence and default behavior](SUPACODE-SCRIPTS.md)
+
+- [Terminal compatibility, tmux dependency and legacy migration](TERMINAL-COMPATIBILITY.md)
