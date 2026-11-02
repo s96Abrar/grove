@@ -181,6 +181,7 @@ struct SessionTabs: View {
     let path: String
     @Environment(\.openSettings) private var openSettings
     @State private var closing: TabRecord?
+    @State private var closingPane: (tab: UUID, pane: UUID)?
     @State private var renaming: TabRecord?
     @State private var tabName = ""
     var tabs: [TabRecord] { model.saved.tabs[path] ?? [] }
@@ -229,10 +230,16 @@ struct SessionTabs: View {
         .sheet(isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             VStack(spacing: 20) { Text("Rename terminal tab").font(.headline); TextField("Tab name", text: $tabName); HStack { Button("Cancel") { renaming = nil }; Button("Save") { if let renaming { model.renameTab(renaming.id, name: tabName) }; renaming = nil } } }.padding(30).frame(width: 350)
         }
-        .alert("Close this tab?", isPresented: Binding(get: { closing != nil }, set: { if !$0 { closing = nil } })) {
-            Button("Cancel", role: .cancel) { closing = nil }
-            Button("Close", role: .destructive) { if let closing { Task { await model.closeTab(closing) } }; closing = nil }
-        } message: { Text("Closing a tab ends its terminal sessions and running commands. Regular Quit keeps persistent sessions alive.") }
+        .alert(closingPane == nil ? "Close this tab?" : "Close this split?", isPresented: Binding(get: { closing != nil || closingPane != nil }, set: { if !$0 { closing = nil; closingPane = nil } })) {
+            Button("Cancel", role: .cancel) { closing = nil; closingPane = nil }
+            Button(closingPane == nil ? "Close Tab" : "Close Split", role: .destructive) {
+                if let target = closingPane { Task { await model.closePane(target.pane, in: target.tab, at: path) } }
+                else if let closing { Task { await model.closeTab(closing) } }
+                closing = nil; closingPane = nil
+            }
+        } message: {
+            Text(closingPane == nil ? "Closing a tab ends its terminal sessions and running commands. Regular Quit keeps persistent sessions alive." : "This ends the terminal session and running commands in this pane. Other panes stay open.")
+        }
     }
     func splitView(_ node: SplitNode, panes: [PaneRecord]) -> AnyView {
         switch node {
@@ -243,7 +250,9 @@ struct SessionTabs: View {
         }
     }
     func paneView(_ record: PaneRecord) -> some View {
-        TerminalPane(session: model.session(record), path: path)
+        TerminalPane(session: model.session(record), path: path, onClose: (active?.panes.count ?? 0) > 1 ? {
+            if let active { closingPane = (active.id, record.id) }
+        } : nil)
     }
 }
 
@@ -251,6 +260,7 @@ struct TerminalPane: View {
     @EnvironmentObject var model: Workspace
     @ObservedObject var session: Session
     let path: String
+    var onClose: (() -> Void)? = nil
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -259,6 +269,10 @@ struct TerminalPane: View {
                 Spacer()
                 Text(session.state).foregroundStyle(.secondary)
                 Button("⌃C") { session.interrupt() }.buttonStyle(.plain).help("Send interrupt")
+                if let onClose {
+                    Button(action: onClose) { Image(systemName: "xmark") }
+                        .buttonStyle(.plain).help("Close split").accessibilityLabel("Close split")
+                }
             }.font(.system(size: 10)).padding(8)
             EmbeddedTerminal(session: session, path: path, fontSize: model.fontSize, persistent: model.usePersistentTerminals)
         }

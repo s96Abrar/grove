@@ -75,3 +75,7 @@ Manual UI scenario: import this repo's `grove.json` through Settings → Scripts
 ## External Open menu
 
 `Checks/OpenTargetCheck.swift` exercises literal paths containing spaces/quotes, Xcode workspace/project/package precedence, internal project-workspace exclusion, hidden/dependency/depth/symlink boundaries and missing-worktree rejection. It runs in `scripts/check.sh`. Manual interaction: choose each installed app from **Open** beside **Scripts**, verify it receives the selected worktree (Terminal cwd, Finder selection, editor folder/project), then relaunch Grove and verify the primary Open button remembers your choice. Missing apps should be disabled. Real external-app window contents are not asserted by the resolver check.
+
+## Closing a terminal split
+
+`StateCheck` removes each pane from a nested mixed-axis split, validates that only the chosen ID disappears, confirms sibling promotion preserves orientation/tab identity, saves and reloads the resulting layout, and rejects removal of the last or an unknown pane. Legacy layouts without an explicit tree are covered too. Manual UI check: create nested splits, run a counter in each, click one pane header's **×**, cancel once, then confirm **Close Split**. Only that pane should disappear/end; other counters should continue. Switch worktrees while cleanup is pending and verify the originating tab is updated. Reopen Grove and check the reduced layout. The last pane's close control should be absent; its tab still has a close button. Cleanup errors must retain pane metadata and show an error.

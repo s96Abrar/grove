@@ -15,10 +15,26 @@ struct TabRecord: Codable, Identifiable {
     var panes = [PaneRecord()]
     var layout: SplitNode? = nil
     var scriptID: UUID? = nil
+    func removingPane(_ id: UUID) -> TabRecord? {
+        guard panes.count > 1, panes.contains(where: { $0.id == id }) else { return nil }
+        var result = self
+        result.panes.removeAll { $0.id == id }
+        result.layout = layout?.removing(id)
+        return result
+    }
 }
 indirect enum SplitNode: Codable {
     case pane(UUID)
     case split(vertical: Bool, first: SplitNode, second: SplitNode)
+    func removing(_ target: UUID) -> SplitNode? {
+        switch self {
+        case .pane(let id): return id == target ? nil : self
+        case .split(let vertical, let first, let second):
+            let left = first.removing(target), right = second.removing(target)
+            if let left, let right { return .split(vertical: vertical, first: left, second: right) }
+            return left ?? right
+        }
+    }
     func inserting(_ newID: UUID, after target: UUID, vertical: Bool) -> SplitNode {
         switch self {
         case .pane(let id): return id == target ? .split(vertical: vertical, first: self, second: .pane(newID)) : self

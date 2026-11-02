@@ -21,6 +21,7 @@ import AppKit
     @AppStorage("githubEnabled") var githubEnabled = false
     @Published private(set) var workspaceStorageBlocked = false
     private var refreshing = false
+    private var closingPaneTabs = Set<UUID>()
     private let verificationPath = ProcessInfo.processInfo.environment["GROVE_VERIFY_PATH"]
     init() {
         if let path = ProcessInfo.processInfo.environment["GROVE_VERIFY_PATH"] {
@@ -101,6 +102,20 @@ import AppKit
         candidate.tabs[path]![index].panes.append(newPane)
         do { try candidate.validate(); saved = candidate; save() }
         catch { self.error = error.localizedDescription }
+    }
+    func closePane(_ paneID: UUID, in tabID: UUID, at path: String) async {
+        guard !closingPaneTabs.contains(tabID),
+              let tab = saved.tabs[path]?.first(where: { $0.id == tabID }),
+              tab.removingPane(paneID) != nil else { return }
+        closingPaneTabs.insert(tabID); defer { closingPaneTabs.remove(tabID) }
+        do { try await endSession(paneID) }
+        catch { self.error = "Could not close this split: \(error.localizedDescription)"; return }
+        // Re-read after cleanup: another action may have changed this tab while awaiting.
+        guard let index = saved.tabs[path]?.firstIndex(where: { $0.id == tabID }),
+              let remaining = saved.tabs[path]![index].removingPane(paneID) else { return }
+        saved.tabs[path]![index] = remaining
+        sessions.removeValue(forKey: paneID)
+        save()
     }
     func closeTab(_ tab: TabRecord) async {
         guard let path = selected?.path else { return }
