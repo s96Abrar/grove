@@ -58,6 +58,7 @@ struct ContentView: View {
     @State private var creating = false
     @State private var branch = ""
     @State private var search = ""
+    @State private var searchCollapsedRoots = Set<String>()
     @State private var reviewing = false
     @State private var browsing = false
     private let accent = Color(red: 0.68, green: 0.88, blue: 0.51)
@@ -76,8 +77,18 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         ForEach(model.roots, id: \.self) { root in
-                            VStack(alignment: .leading, spacing: 7) {
-                                Label(URL(fileURLWithPath: root).lastPathComponent, systemImage: "folder").font(.system(size: 13, weight: .semibold)).padding(.bottom, 5)
+                            DisclosureGroup(isExpanded: Binding(
+                                get: { search.isEmpty ? model.saved.collapsedRoots?.contains(root) != true : !searchCollapsedRoots.contains(root) },
+                                set: { expanded in
+                                    if search.isEmpty {
+                                        var collapsed = model.saved.collapsedRoots ?? []
+                                        if expanded { collapsed.remove(root) } else { collapsed.insert(root) }
+                                        model.saved.collapsedRoots = collapsed; model.save()
+                                    } else {
+                                        if expanded { searchCollapsedRoots.remove(root) } else { searchCollapsedRoots.insert(root) }
+                                    }
+                                }
+                            )) {
                                 ForEach(model.visibleTrees(root).filter { search.isEmpty || $0.branch.localizedCaseInsensitiveContains(search) }) { tree in
                                     Button { model.select(tree) } label: {
                                         HStack(spacing: 9) {
@@ -96,6 +107,9 @@ struct ContentView: View {
                                         Button("Reveal in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) }
                                     }
                                 }
+                            } label: {
+                                Label(URL(fileURLWithPath: root).lastPathComponent, systemImage: "folder")
+                                    .font(.system(size: 13, weight: .semibold))
                             }
                         }
                     }
@@ -146,6 +160,7 @@ struct ContentView: View {
                 }
             }.background(colorScheme == .dark ? Color(red: 0.055, green: 0.065, blue: 0.06) : Color(nsColor: .windowBackgroundColor))
         }
+        .onChange(of: search) { _, _ in searchCollapsedRoots.removeAll() }
         .task {
             if let path = ProcessInfo.processInfo.environment["GROVE_VERIFY_PATH"] {
                 Task { @MainActor in

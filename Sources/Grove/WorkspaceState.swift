@@ -72,6 +72,7 @@ struct SavedWorkspace: Codable {
     var schemaVersion: Int? = 1
     var activeTabs: [String: UUID]? = nil
     var roots: [String] = []
+    var collapsedRoots: Set<String>? = nil
     var tabs: [String: [TabRecord]] = [:]
     var pinned: Set<String> = []
     var archived: Set<String> = []

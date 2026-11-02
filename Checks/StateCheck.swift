@@ -13,12 +13,14 @@ import Foundation
         var second = first
         let newPane = PaneRecord()
         let oldPane = second.tabs["/tmp/project"]![0].panes[0]
+        second.collapsedRoots = ["/tmp/project"]
         second.tabs["/tmp/project"]![0].panes.append(newPane)
         second.tabs["/tmp/project"]![0].layout = .split(vertical: true, first: .pane(oldPane.id), second: .pane(newPane.id))
         try WorkspacePersistence.save(second, to: defaults)
         let restored = try WorkspacePersistence.load(from: defaults)!
         precondition(restored.state.activeTabs?["/tmp/project"] == first.activeTabs?["/tmp/project"])
         precondition(restored.state.tabs["/tmp/project"]![0].panes.count == 2)
+        precondition(restored.state.collapsedRoots == ["/tmp/project"])
         // Closing either side of a nested split must preserve all surviving IDs.
         let thirdPane = PaneRecord()
         let nested = TabRecord(panes: [oldPane, newPane, thirdPane], layout: .split(vertical: true, first: .pane(oldPane.id), second: .split(vertical: false, first: .pane(newPane.id), second: .pane(thirdPane.id))))
@@ -70,7 +72,9 @@ import Foundation
         // Version 0.2 state has no schemaVersion or activeTabs; it must still migrate.
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(first)) as! [String: Any]
         legacy.removeValue(forKey: "schemaVersion"); legacy.removeValue(forKey: "activeTabs")
-        _ = try WorkspacePersistence.decode(JSONSerialization.data(withJSONObject: legacy))
-        print("PASS: workspace round-trip, backup recovery, corrupt preservation, schema migration, invalid pane/layout rejection, nested split removal/collapse/restoration, no startup-command replay")
+        legacy.removeValue(forKey: "collapsedRoots")
+        let legacyState = try WorkspacePersistence.decode(JSONSerialization.data(withJSONObject: legacy))
+        precondition(legacyState.collapsedRoots == nil)
+        print("PASS: workspace round-trip, backup recovery, corrupt preservation, schema migration, invalid pane/layout rejection, nested split removal/collapse/restoration, repository disclosure persistence/migration, no startup-command replay")
     }
 }

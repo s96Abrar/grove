@@ -79,3 +79,7 @@ Manual UI scenario: import this repo's `grove.json` through Settings → Scripts
 ## Closing a terminal split
 
 `StateCheck` removes each pane from a nested mixed-axis split, validates that only the chosen ID disappears, confirms sibling promotion preserves orientation/tab identity, saves and reloads the resulting layout, and rejects removal of the last or an unknown pane. Legacy layouts without an explicit tree are covered too. Manual UI check: create nested splits, run a counter in each, click one pane header's **×**, cancel once, then confirm **Close Split**. Only that pane should disappear/end; other counters should continue. Switch worktrees while cleanup is pending and verify the originating tab is updated. Reopen Grove and check the reduced layout. The last pane's close control should be absent; its tab still has a close button. Cleanup errors must retain pane metadata and show an error.
+
+## Repository disclosure
+
+`StateCheck` round-trips collapsed repository paths and verifies old workspace metadata without the field still loads with expanded defaults. Manual UI check: collapse one repository, leave another expanded, relaunch, and verify their states. The selected terminal should continue running when its heading is collapsed. Search for a branch in a collapsed repository: matches should appear; clearing the query should restore the saved collapsed state. Disclosure controls also apply to plain folders.
