@@ -4,6 +4,7 @@ struct PaneRecord: Codable, Identifiable {
     var id = UUID()
     var title = "Shell"
     var command: String? = nil
+    var environment: [String: String] = [:]
     // Startup commands are a one-time user action, never an automatic restore action.
     enum CodingKeys: String, CodingKey { case id, title }
 }
@@ -13,6 +14,7 @@ struct TabRecord: Codable, Identifiable {
     var vertical = true
     var panes = [PaneRecord()]
     var layout: SplitNode? = nil
+    var scriptID: UUID? = nil
 }
 indirect enum SplitNode: Codable {
     case pane(UUID)
@@ -30,7 +32,26 @@ struct ScriptRecord: Codable, Identifiable {
     var name: String
     var command: String
     var root: String? = nil
+    var icon = "play.fill"
+    var tint = "green"
+    var kind = "custom"
+    enum CodingKeys: String, CodingKey { case id, name, command, root, icon, tint, kind }
+    init(id: UUID = UUID(), name: String, command: String, root: String? = nil, icon: String = "play.fill", tint: String = "green", kind: String = "custom") {
+        self.id = id; self.name = name; self.command = command; self.root = root; self.icon = icon; self.tint = tint; self.kind = kind
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        command = try values.decode(String.self, forKey: .command)
+        root = try values.decodeIfPresent(String.self, forKey: .root)
+        icon = try values.decodeIfPresent(String.self, forKey: .icon) ?? "play.fill"
+        tint = try values.decodeIfPresent(String.self, forKey: .tint) ?? "green"
+        kind = try values.decodeIfPresent(String.self, forKey: .kind) ?? "custom"
+    }
+    func applies(to root: String?) -> Bool { self.root == nil || self.root == root }
 }
+
 struct SavedWorkspace: Codable {
     var schemaVersion: Int? = 1
     var activeTabs: [String: UUID]? = nil

@@ -3,9 +3,6 @@ import AppKit
 
 struct SettingsView: View {
     @EnvironmentObject var model: Workspace
-    @State private var name = ""
-    @State private var command = ""
-    @State private var repositoryOnly = false
     @State private var resetting = false
     var body: some View {
         TabView {
@@ -21,23 +18,8 @@ struct SettingsView: View {
                 Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
                 Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
             }.padding(24).tabItem { Label("General", systemImage: "gear") }
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Custom scripts").font(.title2)
-                List {
-                    ForEach(model.saved.scripts) { script in
-                        HStack { VStack(alignment: .leading) { Text(script.name); Text(script.command).font(.caption).foregroundStyle(.secondary) }; Spacer(); Button("Remove") { model.saved.scripts.removeAll { $0.id == script.id }; model.save() } }
-                    }
-                }
-                TextField("Script name", text: $name)
-                TextField("Shell command", text: $command)
-                Toggle("Only for the selected repository", isOn: $repositoryOnly)
-                Button("Add script") {
-                    model.saved.scripts.append(ScriptRecord(name: name, command: command, root: repositoryOnly ? model.selected.flatMap { model.root(for: $0) } : nil))
-                    model.save(); name = ""; command = ""
-                }.disabled(name.isEmpty || command.isEmpty)
-                Text("Scripts run only when you choose them, in a new interactive terminal tab.").font(.caption).foregroundStyle(.secondary)
-            }.padding(24).tabItem { Label("Scripts", systemImage: "play") }
-        }.frame(width: 560, height: 480)
+            ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
+        }.frame(width: 660, height: 640)
         .confirmationDialog("Reset saved repositories, scripts and terminal layouts? Your source files and Git worktrees are kept. Existing persistent sessions are detached.", isPresented: $resetting) {
             Button("Reset Workspace Metadata", role: .destructive) { model.resetWorkspaceMetadata() }
         }
@@ -51,7 +33,7 @@ struct PaletteView: View {
     @State private var cloneURL = ""
     @State private var creating = false
     @State private var cloning = false
-    struct Action: Identifiable { var id: String { name }; let name: String; let icon: String; let run: () -> Void }
+    struct Action: Identifiable { var id: String { key ?? name }; var key: String? = nil; let name: String; let icon: String; let run: () -> Void }
     var actions: [Action] {
         var result = [
             Action(name: "Add folder or repository", icon: "folder.badge.plus", run: { model.open() }),
@@ -64,7 +46,7 @@ struct PaletteView: View {
         for root in model.roots {
             for tree in model.trees[root] ?? [] { result.append(Action(name: "Go to \(URL(fileURLWithPath: root).lastPathComponent) / \(tree.branch)", icon: "arrow.triangle.branch", run: { model.select(tree) })) }
         }
-        for script in model.saved.scripts.filter({ $0.root == nil || $0.root == model.selected.flatMap({ model.root(for: $0) }) }) { result.append(Action(name: "Run script: \(script.name)", icon: "play", run: { model.addTab(command: script.command, name: script.name) })) }
+        for script in model.availableScripts { result.append(Action(key: script.id.uuidString, name: "Run script: \(script.name)", icon: script.icon, run: { model.runScript(script) })) }
         return result.filter { query.isEmpty || Self.matches(query, in: $0.name) }
     }
     static func matches(_ needle: String, in haystack: String) -> Bool {

@@ -17,6 +17,16 @@ import AppKit
                 Button("Add Repository…") { workspace.open() }.keyboardShortcut("o")
                 Button("New Terminal Tab") { workspace.terminal() }.keyboardShortcut("t", modifiers: [.command, .shift])
             }
+            CommandMenu("Scripts") {
+                Button("Run Primary Script") { if let script = workspace.primaryScript { workspace.runScript(script) } }
+                    .keyboardShortcut("r").disabled(workspace.primaryScript == nil || workspace.selected == nil)
+                Button("Stop Primary Script") {
+                    if let path = workspace.selected?.path, let script = workspace.primaryScript,
+                       let tab = workspace.saved.tabs[path]?.first(where: { $0.scriptID == script.id }) {
+                        Task { await workspace.stopScript(tab) }
+                    }
+                }.keyboardShortcut(".").disabled(workspace.primaryScript == nil || workspace.selected == nil)
+            }
             CommandMenu("Workspace") {
                 Button("Find in Terminal…") {
                     let item = NSMenuItem(); item.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
@@ -197,9 +207,13 @@ struct SessionTabs: View {
                     Button("Split left / right") { if let active { model.split(tab: active.id, vertical: true) } }
                     Button("Split top / bottom") { if let active { model.split(tab: active.id, vertical: false) } }
                 } label: { Image(systemName: "rectangle.split.2x1") }
+                if let active, active.scriptID != nil {
+                    Button("Stop") { Task { await model.stopScript(active) } }.help("End this script tab's processes")
+                    Button("Restart") { Task { await model.restartScript(active) } }.help("Run the saved command again")
+                }
                 Menu("Scripts") {
-                    ForEach(model.saved.scripts.filter { $0.root == nil || $0.root == model.selected.flatMap({ model.root(for: $0) }) }) { script in
-                        Button(script.name) { model.addTab(command: script.command, name: script.name) }
+                    ForEach(model.availableScripts) { script in
+                        Button { model.runScript(script) } label: { Label(script.name, systemImage: script.icon).foregroundStyle(script.color) }
                     }
                     Button("Manage scripts…") { openSettings() }
                 }

@@ -29,7 +29,7 @@ import AppKit
             else {
                 saved.roots = [path]
                 let marker = path + "/grove-terminal-marker"
-                let command = "printf 'interactive-terminal-ready' > " + Shell.quote(marker) + "; printf '%s' $$ > " + Shell.quote(path + "/shell-pid")
+                let command = "printf 'interactive-terminal-ready' > " + Shell.quote(marker) + "; printf '%s' $PPID > " + Shell.quote(path + "/shell-pid")
                 saved.tabs[path] = [TabRecord(name: "Verification", panes: [PaneRecord(command: command)])]
             }
             return
@@ -79,10 +79,12 @@ import AppKit
         if let found = sessions[record.id] { return found }
         let session = Session(record); sessions[record.id] = session; return session
     }
-    func addTab(command: String? = nil, name: String = "Terminal") {
+    func addTab(command: String? = nil, name: String = "Terminal", scriptID: UUID? = nil) {
         guard let path = selected?.path else { return }
         guard (saved.tabs[path]?.count ?? 0) < 64 else { error = "This workspace has reached its 64-tab limit."; return }
-        let tab = TabRecord(name: name, panes: [PaneRecord(title: name, command: command)])
+        var tab = TabRecord(name: name, panes: [PaneRecord(title: name, command: command)])
+        tab.scriptID = scriptID
+        tab.panes[0].environment = scriptEnvironment(scriptID: scriptID, tabID: tab.id)
         saved.tabs[path, default: []].append(tab)
         saved.activeTabs = saved.activeTabs ?? [:]; saved.activeTabs?[path] = tab.id; save()
     }
@@ -219,13 +221,16 @@ import AppKit
         sessions.removeAll(); saved = SavedWorkspace(); selected = nil; trees = [:]
         WorkspacePersistence.reset(); workspaceStorageBlocked = false; save()
     }
-    private func endSession(_ id: UUID) async throws {
+    func endSession(_ id: UUID) async throws {
         let name = "grove-" + id.uuidString
         try await Task.detached {
             let listing = try Shell.run("/usr/bin/screen", ["-list", name], at: "/", allowFailure: true)
             if listing.contains("." + name) { _ = try Shell.run("/usr/bin/screen", ["-S", name, "-X", "quit"], at: "/") }
         }.value
-        sessions[id]?.detach()
+        if sessions[id] == nil, let record = saved.tabs.values.flatMap({ $0 }).flatMap({ $0.panes }).first(where: { $0.id == id }) {
+            sessions[id] = Session(record)
+        }
+        sessions[id]?.end()
     }
     func endSessionsAndQuit() {
         let ids = saved.tabs.values.flatMap { $0 }.flatMap { $0.panes }.map(\.id)

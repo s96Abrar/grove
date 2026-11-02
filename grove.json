@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "scripts": [
+    {
+      "id": "A7E406B0-A14F-4A56-9700-DBE8E7150001",
+      "name": "Build Grove",
+      "command": "make build",
+      "icon": "hammer",
+      "tint": "green",
+      "kind": "run"
+    },
+    {
+      "id": "A7E406B0-A14F-4A56-9700-DBE8E7150002",
+      "name": "Check Grove",
+      "command": "make check",
+      "icon": "checkmark.circle",
+      "tint": "blue",
+      "kind": "test"
+    },
+    {
+      "id": "A7E406B0-A14F-4A56-9700-DBE8E7150003",
+      "name": "Lint workflows",
+      "command": "make lint",
+      "icon": "checkmark.shield",
+      "tint": "orange",
+      "kind": "lint"
+    },
+    {
+      "id": "A7E406B0-A14F-4A56-9700-DBE8E7150004",
+      "name": "Generate app icon",
+      "command": "make icon",
+      "icon": "text.alignleft",
+      "tint": "purple"
+    }
+  ]
+}
