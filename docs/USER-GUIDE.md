@@ -36,6 +36,10 @@ Closing a tab prompts first and ends its sessions. If cleanup fails, Grove repor
 
 The backend integration check proves interactive shell input and preservation of shell PID across detach/reattach. Full Grove quit/relaunch, scrollback restoration and every agent TUI remain app-level acceptance scenarios, not blanket guarantees.
 
+## Shortcut help
+
+Open **Grove → Settings…** (Command-comma), then **Help**, for the keyboard shortcut reference and terminal/script context notes. The sidebar tagline and terminal status/shortcut footer strips have been removed; terminal panes use the available space.
+
 ## Scripts and settings
 
 Open macOS **Settings** for appearance, font, terminal persistence, worktree base/fetch preferences and GitHub opt-in. In **Scripts**, select **Add preset** for Run, Test, Deploy, Lint, Format or Custom. These categories start with an empty command, as they do in Supacode. Enter your project's actual command and save. The menu also includes clearly labeled Swift/npm/Grove examples; they require the corresponding tools and project targets and install nothing.

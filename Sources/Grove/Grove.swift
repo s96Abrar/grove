@@ -119,8 +119,6 @@ struct ContentView: View {
                     .buttonStyle(.bordered).disabled(model.selected == nil || model.busy).keyboardShortcut("n")
                 Toggle("Show archived", isOn: $model.showArchived).font(.caption)
                 Button("Command palette  ⇧⌘P") { model.palette = true }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
-                Divider()
-                HStack { Circle().fill(accent).frame(width: 6, height: 6); Text("On your machine. In your control.").font(.system(size: 10)).foregroundStyle(.secondary) }
             }.padding(20).frame(width: 245).background(colorScheme == .dark ? Color(red: 0.085, green: 0.095, blue: 0.09) : Color(nsColor: .controlBackgroundColor))
             Divider()
             VStack(spacing: 0) {
@@ -147,8 +145,6 @@ struct ContentView: View {
                             }.font(.system(size: 12, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(22)
                         }
                     } else { HSplitView { SessionTabs(path: tree.path).id(tree.path); if browsing { FileBrowser(root: tree.path).id(tree.path) } } }
-                    Divider()
-                    HStack { Image(systemName: "externaldrive"); Text("Isolated worktree"); Spacer(); Text("⌘N  new worktree    ⇧⌘T  new terminal tab") }.font(.system(size: 10)).foregroundStyle(.secondary).padding(12)
                 } else {
                     Spacer()
                     Image(systemName: "leaf").font(.system(size: 56, weight: .ultraLight)).foregroundStyle(accent)

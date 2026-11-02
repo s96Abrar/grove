@@ -19,6 +19,7 @@ struct SettingsView: View {
                 Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
             }.padding(24).tabItem { Label("General", systemImage: "gear") }
             ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
+            ShortcutsHelpView().tabItem { Label("Help", systemImage: "questionmark.circle") }
         }.frame(width: 660, height: 640)
         .confirmationDialog("Reset saved repositories, scripts and terminal layouts? Your source files and Git worktrees are kept. Existing persistent sessions are detached.", isPresented: $resetting) {
             Button("Reset Workspace Metadata", role: .destructive) { model.resetWorkspaceMetadata() }
@@ -84,4 +85,41 @@ struct PaletteView: View {
         }.padding(20).frame(width: 560, height: 420)
     }
     func executeFirst() { if let action = actions.first { action.run(); if !creating && !cloning { model.palette = false } } }
+}
+
+struct ShortcutsHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Keyboard shortcuts").font(.title2)
+                Text("⌘ Command   ⇧ Shift   ⌃ Control").font(.callout).foregroundStyle(.secondary)
+                Grid(alignment: .leading, horizontalSpacing: 36, verticalSpacing: 12) {
+                    shortcut("Add repository or folder", "⌘O")
+                    shortcut("Create worktree", "⌘N")
+                    shortcut("New terminal tab", "⇧⌘T")
+                    shortcut("Command palette", "⇧⌘P")
+                    shortcut("Go to worktree 1–9", "⌃1–9")
+                    shortcut("Find in terminal", "⌘F")
+                    shortcut("Run primary script", "⌘R")
+                    shortcut("Stop primary script", "⌘.")
+                    shortcut("Interrupt terminal command", "⌃C")
+                    shortcut("Run first palette result", "Return")
+                    shortcut("Close command palette", "Escape")
+                    shortcut("Open Settings", "⌘,")
+                    shortcut("Quit Grove", "⌘Q")
+                }
+                Divider()
+                Text("Run and Stop target the first available Run-type script. Find and Interrupt need focus in a terminal pane. Worktree numbers follow sidebar ordering and exclude hidden archived worktrees.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Text("Regular Quit keeps persistent terminal sessions alive. Use Workspace → Quit and End Grove Sessions to stop them.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+        }.textSelection(.enabled)
+    }
+    private func shortcut(_ action: String, _ keys: String) -> some View {
+        GridRow {
+            Text(action)
+            Text(keys).font(.system(.body, design: .monospaced)).gridColumnAlignment(.trailing)
+        }
+    }
 }
