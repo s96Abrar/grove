@@ -17,4 +17,5 @@ python3 Checks/tmux_check.py
 scripts/grove --help >/dev/null
 if [ "${GROVE_SKIP_BUILD:-0}" != "1" ]; then bash scripts/build-app.sh; fi
 python3 scripts/verify_app.py
+python3 Checks/install_check.py
 if [ "${GROVE_RUN_GUI_CHECKS:-0}" = "1" ]; then python3 Checks/app_relaunch_check.py; fi

@@ -12,6 +12,8 @@ bash scripts/build-app.sh
 open dist/Grove.app
 ```
 
+To build, verify, install to `/Applications`, and open Grove, run `bash scripts/install.sh`. Set `GROVE_INSTALL_DIR` to choose another folder. An existing installation is kept as a dated backup in the same folder. The installer verifies the staged bundle before replacement and restores the previous installation if replacement fails. It does not quit an already running Grove instance; quit and reopen if the old process remains active.
+
 The script performs a release build, resolves SwiftPM’s executable directory, creates `dist/Grove.app`, writes Info.plist and applies a local ad-hoc signature. Build intermediates are under `.build/`. Generated bundles are under `dist/`. Both are ignored by the supplied `.gitignore`.
 
 A package build is not a packaged-app launch check. Use [testing](TESTING.md) and retain actual outcomes in [validation](VALIDATION.md).
