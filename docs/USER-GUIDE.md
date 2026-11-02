@@ -22,7 +22,7 @@ Each tab contains one or more SwiftTerm-backed PTY panes. Type shell commands or
 
 Press Shift-Command-T, use **New tab**, or select the plus button to add a terminal. Use the split menu for left/right or top/bottom panes. Splits form a persisted recursive layout; the focused pane is split when identifiable, otherwise the last pane is used. Right-click a tab to rename it or move it left/right within its worktree. Use Command-F to request the native terminal find UI; keyboard focus must be in the terminal. The pane’s **⌃C** button sends an interrupt through its terminal input. Each split pane also has an **×** button in its header. Confirm **Close Split** to end only that pane’s session and running commands; its sibling expands to fill the space, and the remaining layout is saved. Cancel keeps everything running. The last pane stays open; use the tab’s **×** to close the whole tab.
 
-Workspace metadata saves tab/pane IDs and recursive split orientation/layout. The active tab/pane and divider geometry are not restored. Terminal font size is configurable in Settings. App appearance supports dark/light/system choices, while full terminal theme synchronization and custom per-pane colors remain incomplete.
+Workspace metadata saves tab/pane IDs and recursive split orientation/layout. The active tab/pane and divider geometry are not restored. Terminal font and size are configurable in Settings. App appearance supports dark/light/system choices, while full terminal theme synchronization and custom per-pane colors remain incomplete.
 
 ## Persistence and session cleanup
 

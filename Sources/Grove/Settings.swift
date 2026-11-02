@@ -3,11 +3,17 @@ import AppKit
 
 struct SettingsView: View {
     @EnvironmentObject var model: Workspace
+    private let fonts = NSFontManager.shared.availableFonts.filter { NSFont(name: $0, size: 13)?.isFixedPitch == true }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     @State private var resetting = false
     var body: some View {
         TabView {
             Form {
                 Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
+                Picker("Terminal font", selection: $model.fontName) {
+                    Text("System Monospaced").tag("")
+                    if !model.fontName.isEmpty && !fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
+                    ForEach(fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
+                }
                 Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
                 Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
                 Text("New terminals use Grove’s own tmux server. Quit detaches; reopening restores sessions. Existing screen sessions stay attached until closed.").font(.caption).foregroundStyle(.secondary)

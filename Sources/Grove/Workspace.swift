@@ -16,6 +16,7 @@ import AppKit
     @AppStorage("baseRef") var baseRef = "HEAD"
     @AppStorage("fetchBeforeCreate") var fetchBeforeCreate = false
     @AppStorage("fontSize") var fontSize = 13.0
+    @AppStorage("fontName") var fontName = ""
     @AppStorage("persistentTerminals") var persistent = true
     @AppStorage("appearance") var appearance = "dark"
     @AppStorage("githubEnabled") var githubEnabled = false

@@ -11,12 +11,12 @@ import Darwin
     @Published var muted = false
     var view: LocalProcessTerminalView?
     init(_ record: PaneRecord) { self.record = record; title = record.title }
-    func terminal(path: String, fontSize: Double, persistent: Bool) -> LocalProcessTerminalView {
-        if let view { view.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular); return view }
+    func terminal(path: String, font: NSFont, persistent: Bool) -> LocalProcessTerminalView {
+        if let view { view.font = font; return view }
         let terminal = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         if state == "Ended" { view = terminal; return terminal }
         terminal.processDelegate = self
-        terminal.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        terminal.font = font
         terminal.nativeBackgroundColor = NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.06, alpha: 1)
         var env = ProcessInfo.processInfo.environment
         env.merge(record.environment) { _, new in new }
@@ -65,8 +65,10 @@ import Darwin
 struct EmbeddedTerminal: NSViewRepresentable {
     @ObservedObject var session: Session
     let path: String
+    let fontName: String
     let fontSize: Double
     let persistent: Bool
-    func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, fontSize: fontSize, persistent: persistent) }
-    func updateNSView(_ view: LocalProcessTerminalView, context: Context) { view.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
+    var font: NSFont { NSFont(name: fontName, size: fontSize) ?? .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
+    func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent) }
+    func updateNSView(_ view: LocalProcessTerminalView, context: Context) { view.font = font }
 }
