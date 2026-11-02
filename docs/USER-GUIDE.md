@@ -50,6 +50,12 @@ Commands start in the selected worktree and inherit the login-shell environment,
 
 Scripts have ordinary shell access to your files and services; review commands before running them. Grove's scripts remain persistent terminal tabs with a printed exit code, unlike Supacode's temporary locked transcripts and structured running/completed status. Automatic setup/archive/delete/open-file hooks, script deeplinks and configurable script shortcuts are not implemented. See the [pinned Supacode source evidence](SUPACODE-SCRIPTS.md).
 
+## Open the worktree in another app
+
+The **Open** control sits beside **Scripts** in the terminal tab bar. Click its arrow to choose **VS Code**, **Xcode**, **Terminal** or **Finder**. Clicking the main Open button repeats the last selected app; this preference survives relaunch. Unavailable apps appear disabled, and availability refreshes when Grove becomes active. VS Code's `code` shell command is not required.
+
+VS Code receives the selected worktree folder. Terminal opens a separate system Terminal window/tab rooted there. Finder reveals that worktree. Xcode prefers a `.xcworkspace`, then an `.xcodeproj`, then the root `Package.swift`, otherwise the folder. Project discovery stays within three levels of the selected worktree, ignores hidden/generated/dependency directories and symlinks, and chooses deterministically when several projects match. The worktree is passed as a file URL, so spaces, quotes and shell characters in its path are preserved. Launch errors appear in Grove. This Open menu uses built-in app actions; custom open-file shell hooks remain a separate future feature.
+
 ## Review Git changes and PR metadata
 
 Select **Changes** to see short Git status and a combined tracked diff against HEAD, including staged and unstaged tracked changes. Untracked files appear in status only. Use **Files** to browse nonhidden directory entries, navigate into folders and open files in their system-default application. Git decorations, ignored-file policies and custom open-file scripts are not implemented. Local roster and selected-worktree status refresh every five seconds; **Refresh** explicitly requests new state. Finder reveals the selected directory.

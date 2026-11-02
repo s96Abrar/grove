@@ -217,6 +217,7 @@ struct SessionTabs: View {
                     }
                     Button("Manage scripts…") { openSettings() }
                 }
+                OpenMenu(path: path)
             }.font(.system(size: 11)).padding(10)
             Divider()
             if let active {

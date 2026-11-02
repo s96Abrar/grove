@@ -8,6 +8,8 @@ swiftc Sources/Grove/WorkspaceState.swift Checks/StateCheck.swift -o build/check
 build/checks/state-check
 swiftc Sources/Grove/WorkspaceState.swift Sources/Grove/ScriptPreset.swift Checks/ScriptCheck.swift -o build/checks/script-check
 build/checks/script-check
+swiftc Sources/Grove/OpenTarget.swift Checks/OpenTargetCheck.swift -o build/checks/open-target-check
+build/checks/open-target-check
 python3 Checks/release_policy_check.py
 python3 Checks/screen_check.py
 scripts/grove --help >/dev/null
