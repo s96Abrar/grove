@@ -175,12 +175,7 @@ struct ContentView: View {
                     Divider()
                     if reviewing {
                         HStack { Label("WORKING TREE", systemImage: "arrow.triangle.branch"); Spacer(); Button("Refresh") { Task { await model.reload(); await model.refreshChanges() } } }.font(.caption).padding()
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 20) {
-                                Text(model.status.isEmpty ? "Working tree is clean." : model.status).foregroundStyle(accent)
-                                Text(model.diff.isEmpty ? "No tracked changes. Untracked files appear above; add them with Git to include them in the diff." : model.diff)
-                            }.font(.system(size: 12, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(22)
-                        }
+                        ChangesDiffView(statusText: model.status, diffText: model.diff)
                     } else { HSplitView { SessionTabs(path: tree.path).id(tree.path); if browsing { FileBrowser(root: tree.path).id(tree.path) } } }
                 } else {
                     Spacer()
