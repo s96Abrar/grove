@@ -10,14 +10,19 @@ import Darwin
     @Published var state = "Starting"
     @Published var muted = false
     var view: LocalProcessTerminalView?
+    /// Last terminal background color applied to this session's view; guards
+    /// against redundant `nativeBackgroundColor` assignments from frequent
+    /// `updateNSView` passes (each assignment forces cached-state refresh).
+    var appliedBackground: NSColor?
     init(_ record: PaneRecord) { self.record = record; title = record.title }
-    func terminal(path: String, font: NSFont, persistent: Bool) -> LocalProcessTerminalView {
+    func terminal(path: String, font: NSFont, persistent: Bool, background: NSColor) -> LocalProcessTerminalView {
         if let view { view.font = font; return view }
         let terminal = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         if state == "Ended" { view = terminal; return terminal }
         terminal.processDelegate = self
         terminal.font = font
-        terminal.nativeBackgroundColor = NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.06, alpha: 1)
+        terminal.nativeBackgroundColor = background
+        appliedBackground = background
         var env = ProcessInfo.processInfo.environment
         env.merge(record.environment) { _, new in new }
         env = PersistentTerminal.environment(env)
@@ -62,13 +67,27 @@ import Darwin
     func programStatusChanged(source: TerminalView, records: [TerminalProgramStatus]) { state = records.isEmpty ? "Shell" : "Program active" }
 }
 
+/// Terminal focus tracking is event-driven via window update/key notifications
+/// (SwiftTerm's first-responder overrides are not `open`, so no subclass hook).
+/// The handler is an O(panes) pointer comparison; publishes only on change.
+
 struct EmbeddedTerminal: NSViewRepresentable {
     @ObservedObject var session: Session
     let path: String
     let fontName: String
     let fontSize: Double
     let persistent: Bool
+    let background: NSColor
     var font: NSFont { NSFont(name: fontName, size: fontSize) ?? .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
-    func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent) }
-    func updateNSView(_ view: LocalProcessTerminalView, context: Context) { view.font = font }
+    func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent, background: background) }
+    func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
+        view.font = font
+        // Assign only when the target actually changed: updateNSView fires on
+        // every state publish, and each assignment forces a cached-state refresh.
+        if session.appliedBackground != background {
+            session.appliedBackground = background
+            view.nativeBackgroundColor = background
+        }
+    }
 }
+

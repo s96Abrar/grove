@@ -12,6 +12,21 @@ import AppKit
     @Published var pullRequest = ""
     @Published var showArchived = false
     @Published var palette = false
+    @Published var backgroundError: String?
+    @Published var transientNotice: String?
+    @Published var showCreateSheet = false
+    @Published var diffStats: [String: DiffSummary] = [:]
+    /// Transient (never persisted): pane that held terminal focus most recently,
+    /// used for deterministic focus restoration after sheets/alerts dismiss.
+    @Published private(set) var lastFocusedPaneID: UUID?
+    @Published private(set) var focusedPaneID: UUID?
+    struct CloseRequest: Equatable { var path: String; var tab: UUID; var pane: UUID? }
+    @Published var pendingClose: CloseRequest?
+    @Published var pendingRemove: Worktree?
+    @Published var pendingRename: Worktree?
+    func requestRemove(_ tree: Worktree) { snapshotFocus(); pendingRemove = tree }
+    func requestRename(_ tree: Worktree) { snapshotFocus(); pendingRename = tree }
+    func requestRenameSelected() { guard let tree = selected else { return }; snapshotFocus(); pendingRename = tree }
     var sessions: [UUID: Session] = [:]
     @AppStorage("baseRef") var baseRef = "HEAD"
     @AppStorage("fetchBeforeCreate") var fetchBeforeCreate = false
@@ -20,6 +35,11 @@ import AppKit
     @AppStorage("persistentTerminals") var persistent = true
     @AppStorage("appearance") var appearance = "dark"
     @AppStorage("githubEnabled") var githubEnabled = false
+    @AppStorage("triageSort") var triageSort = true
+    @AppStorage("compactSidebar") var compactSidebar = false
+    private var reattachedIDs = Set<UUID>()
+    private let launchedAt = Date()
+    private var reattachDebounce: Task<Void, Never>?
     @Published private(set) var workspaceStorageBlocked = false
     private var refreshing = false
     private var closingPaneTabs = Set<UUID>()
@@ -45,6 +65,12 @@ import AppKit
             workspaceStorageBlocked = true
             self.error = "Workspace recovery is needed: \(error.localizedDescription) Your saved metadata has not been overwritten. Use Settings to reset workspace metadata only if you want to start fresh."
         }
+        // Event-driven terminal-focus tracking: window update notifications fire
+        // on user interaction, and the handler is an O(panes) pointer compare
+        // that publishes only when the focused pane actually changes.
+        let center = NotificationCenter.default
+        center.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: .main) { [weak self] _ in self?.refreshFocusedPane() }
+        center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] _ in self?.refreshFocusedPane() }
     }
     var roots: [String] { saved.roots }
     var usePersistentTerminals: Bool { verificationPath != nil || persistent }
@@ -79,7 +105,198 @@ import AppKit
     }
     func session(_ record: PaneRecord) -> Session {
         if let found = sessions[record.id] { return found }
-        let session = Session(record); sessions[record.id] = session; return session
+        let session = Session(record)
+        sessions[record.id] = session; return session
+    }
+
+    /// Re-derive which pane holds terminal first responder; publish only on change.
+    func refreshFocusedPane() {
+        var newFocused: UUID?
+        for (id, session) in sessions {
+            if let view = session.view, let window = view.window, window.firstResponder === view { newFocused = id; break }
+        }
+        guard newFocused != focusedPaneID else { return }
+        focusedPaneID = newFocused
+        if let newFocused {
+            lastFocusedPaneID = newFocused
+            if let session = sessions[newFocused] { noteReattachIfNeeded(session) }
+        }
+    }
+
+    // MARK: Focus discipline
+
+    /// Record which terminal pane currently holds first responder, if any.
+    /// Called before presenting sheets/dialogs so focus can be restored on dismissal.
+    func snapshotFocus() {
+        for (id, session) in sessions {
+            if let view = session.view, let window = view.window, window.firstResponder === view {
+                lastFocusedPaneID = id
+                return
+            }
+        }
+    }
+
+    // MARK: Keyboard actions
+
+    func activeTab(at path: String) -> TabRecord? {
+        let tabs = saved.tabs[path] ?? []
+        return tabs.first(where: { $0.id == saved.activeTabs?[path] }) ?? tabs.last
+    }
+
+    func closeFocused() {
+        guard let path = selected?.path else { return }
+        guard let active = activeTab(at: path) else { return }
+        let focused = active.panes.first { pane in
+            guard let view = sessions[pane.id]?.view, let window = view.window else { return false }
+            return window.firstResponder === view
+        }?.id ?? active.panes.last?.id
+        snapshotFocus()
+        pendingClose = CloseRequest(path: path, tab: active.id, pane: active.panes.count > 1 ? focused : nil)
+    }
+
+    func cycleTab(offset: Int) {
+        guard let path = selected?.path, let tabs = saved.tabs[path], tabs.count > 1 else { return }
+        let currentID = saved.activeTabs?[path] ?? tabs.last?.id
+        let currentIndex = tabs.firstIndex(where: { $0.id == currentID }) ?? 0
+        let next = (currentIndex + offset + tabs.count) % tabs.count
+        saved.activeTabs = saved.activeTabs ?? [:]; saved.activeTabs?[path] = tabs[next].id; save()
+    }
+
+    func copyWorktreePath() {
+        guard let path = selected?.path else { return }
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path, forType: .string)
+    }
+
+    func copyBranchName() {
+        guard let branch = selected?.branch else { return }
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(branch, forType: .string)
+    }
+
+    func jumpToNextAttention() {
+        let ordered = roots.flatMap { visibleTrees($0) }
+        let attention = ordered.filter { tree in
+            saved.tabs[tree.path]?.flatMap(\.panes).contains {
+                WorktreeStatus.parse(sessions[$0.id]?.state ?? "") == .failed
+            } == true
+        }
+        guard !attention.isEmpty else { return }
+        let currentIndex = selected.flatMap { current in attention.firstIndex(where: { $0.path == current.path }) }
+        let next = attention[(currentIndex.map { $0 + 1 } ?? 0) % attention.count]
+        select(next)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.focusTerminalPane()
+        }
+    }
+
+    /// Transient "Reattached to N saved terminal sessions" notice on relaunch.
+    private func noteReattachIfNeeded(_ session: Session) {
+        guard session.state == "Shell", recordIsRestored(session.record),
+              Date().timeIntervalSince(launchedAt) < 30,
+              !reattachedIDs.contains(session.id) else { return }
+        reattachedIDs.insert(session.id)
+        reattachDebounce?.cancel()
+        reattachDebounce = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled, let self else { return }
+            self.transientNotice = "Reattached to \(self.reattachedIDs.count) saved terminal session\(self.reattachedIDs.count == 1 ? "" : "s")"
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            self.transientNotice = nil
+        }
+    }
+
+    /// A pane is "restored" when it has no startup command (plain shell) —
+    /// fresh shells and reattached tmux sessions are indistinguishable in the
+    /// PTY itself, so the notice counts restored plain-shell panes.
+    private func recordIsRestored(_ record: PaneRecord) -> Bool { record.command == nil }
+
+    // MARK: Triage status
+
+    /// Rollup status for a worktree: most attention-worthy pane state wins.
+    func status(for path: String) -> WorktreeStatus {
+        let panes = saved.tabs[path]?.flatMap(\.panes) ?? []
+        guard !panes.isEmpty else { return .idle }
+        let statuses = panes.map { WorktreeStatus.parse(sessions[$0.id]?.state ?? "Starting") }
+        return statuses.min { $0.sortRank < $1.sortRank } ?? .idle
+    }
+
+    /// Hysteresis: a status only changes the triage sort once it has persisted
+    /// across two consecutive polls, so rows never reshuffle under the user.
+    private var lastStatuses: [String: WorktreeStatus] = [:]
+    func stableStatus(for path: String) -> WorktreeStatus {
+        let current = status(for: path)
+        let previous = lastStatuses[path] ?? current
+        return previous == current ? current : previous
+    }
+
+    func recordStatusSnapshot() {
+        var snapshot: [String: WorktreeStatus] = [:]
+        for path in saved.tabs.keys { snapshot[path] = status(for: path) }
+        lastStatuses = snapshot
+    }
+
+    /// Tier-gated batch diff summary poll for visible worktrees.
+    func pollDiffStats() async {
+        guard !refreshing, !roots.isEmpty else { return }
+        let efficient = PerformanceProfileManager.shared.effectiveTier == .efficient
+        let paths = roots.flatMap { visibleTrees($0) }.map(\.path)
+        let stats = await Task.detached { () -> [String: DiffSummary] in
+            var result: [String: DiffSummary] = [:]
+            // Sequential: bounded process spawns, no fan-out.
+            for path in paths {
+                if Task.isCancelled { break }
+                guard let status = try? Git.run(["status", "--porcelain", "-z"], at: path), !status.isEmpty else { continue }
+                var additions = 0, deletions = 0
+                if !efficient, let numstat = try? Git.run(["diff", "--numstat", "--no-color"], at: path) {
+                    for line in numstat.split(separator: "\n") {
+                        let parts = line.split(separator: "\t")
+                        if parts.count >= 2, let a = Int(parts[0]), let d = Int(parts[1]) { additions += a; deletions += d }
+                    }
+                }
+                result[path] = DiffSummary(dirty: true, additions: additions, deletions: deletions)
+            }
+            return result
+        }.value
+        diffStats = stats
+        recordStatusSnapshot()
+    }
+
+    /// Restore terminal focus to the last focused pane; fall back to the first
+    /// pane of the selected worktree's active tab. Guards cover panes that were
+    /// removed or closed while a sheet was presented.
+    func restoreFocus() {
+        DispatchQueue.main.async {
+            guard let id = self.lastFocusedPaneID,
+                  let session = self.sessions[id],
+                  let view = session.view, view.window != nil else {
+                self.focusFallbackPane()
+                return
+            }
+            view.window?.makeFirstResponder(view)
+        }
+    }
+
+    private func focusFallbackPane() {
+        guard let path = selected?.path else { return }
+        guard let active = activeTab(at: path), let pane = active.panes.first,
+              let session = sessions[pane.id], let view = session.view, view.window != nil else { return }
+        view.window?.makeFirstResponder(view)
+    }
+
+    /// Focus a terminal pane if none currently holds first responder.
+    /// Returns the view focused (or already focused), nil if no terminal exists.
+    func focusTerminalPane() -> NSView? {
+        for session in sessions.values {
+            if let view = session.view, let window = view.window, window.firstResponder === view { return view }
+        }
+        if let id = lastFocusedPaneID, let session = sessions[id], let view = session.view, view.window != nil {
+            view.window?.makeFirstResponder(view)
+            return view
+        }
+        guard let path = selected?.path, let active = activeTab(at: path), let pane = active.panes.first,
+              let session = sessions[pane.id], let view = session.view, view.window != nil else { return nil }
+        view.window?.makeFirstResponder(view)
+        return view
     }
     func addTab(command: String? = nil, name: String = "Terminal", scriptID: UUID? = nil) {
         guard let path = selected?.path else { return }
@@ -143,7 +360,7 @@ import AppKit
             do { trees[root] = try await Task.detached { try Git.list(at: root) }.value }
             catch {
                 if isFolder(root) && FileManager.default.fileExists(atPath: root) { trees[root] = [Worktree(path: root, branch: URL(fileURLWithPath: root).lastPathComponent)] }
-                else { self.error = error.localizedDescription }
+                else { backgroundError = "Background repository refresh failed: \(error.localizedDescription)" }
             }
         }
         if selected == nil || !trees.values.flatMap({ $0 }).contains(where: { $0.path == selected?.path }) {
@@ -187,12 +404,29 @@ import AppKit
     }
     func remove(_ tree: Worktree) async {
         guard let root = root(for: tree) else { return }
+        // Council-reviewed ordering: end every pane session FIRST (kill-session
+        // must happen while the worktree directory still exists); teardown
+        // failure aborts while the tree is intact — no inconsistent state.
+        var teardownError: String?
+        for tab in saved.tabs[tree.path] ?? [] {
+            for pane in tab.panes {
+                do { try await endSession(pane.id) }
+                catch { teardownError = error.localizedDescription }
+                sessions.removeValue(forKey: pane.id)
+            }
+        }
+        if let teardownError {
+            error = "Could not end some terminal sessions in this worktree: \(teardownError) Resolve them before removing the worktree."
+            await reload()
+            return
+        }
         do {
             _ = try await Task.detached { try Git.remove(tree, at: root) }.value
-            for tab in saved.tabs[tree.path] ?? [] { for pane in tab.panes { sessions[pane.id]?.detach(); sessions.removeValue(forKey: pane.id) } }
-            saved.tabs.removeValue(forKey: tree.path); saved.activeTabs?.removeValue(forKey: tree.path); saved.pinned.remove(tree.path); saved.archived.remove(tree.path); save()
-            await reload()
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription; return }
+        // Metadata cleanup is unconditional once the worktree is removed, so
+        // persisted state can never point at a deleted directory.
+        saved.tabs.removeValue(forKey: tree.path); saved.activeTabs?.removeValue(forKey: tree.path); saved.pinned.remove(tree.path); saved.archived.remove(tree.path); save()
+        await reload()
     }
     func rename(_ tree: Worktree, branch: String) async {
         do { try await Task.detached { try Git.rename(branch, at: tree.path) }.value; await reload(); if let changed = trees.values.flatMap({ $0 }).first(where: { $0.path == tree.path }) { select(changed) } }

@@ -64,7 +64,14 @@ enum Git {
             .appendingPathComponent(".grove-worktrees").appendingPathComponent(URL(fileURLWithPath: root).lastPathComponent)
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         let destination = parent.appendingPathComponent(UUID().uuidString.prefix(8) + "-" + branch.replacingOccurrences(of: "/", with: "-")).path
-        _ = try run(["worktree", "add", "-b", branch, destination, commit], at: root)
+        do { _ = try run(["worktree", "add", "-b", branch, destination, commit], at: root) }
+        catch {
+            // Rollback: worktree add is non-atomic; prune registrations and
+            // remove any half-created checkout so no zombie state survives.
+            _ = try? run(["worktree", "prune"], at: root)
+            try? FileManager.default.removeItem(atPath: destination)
+            throw error
+        }
         return try run(["rev-parse", "--show-toplevel"], at: destination).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

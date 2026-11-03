@@ -3,6 +3,7 @@ import AppKit
 
 struct SettingsView: View {
     @EnvironmentObject var model: Workspace
+    @ObservedObject private var profile = PerformanceProfileManager.shared
     private let fonts = NSFontManager.shared.availableFonts.filter { NSFont(name: $0, size: 13)?.isFixedPitch == true }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     @State private var resetting = false
     var body: some View {
@@ -43,15 +44,25 @@ struct PaletteView: View {
     @State private var cloneURL = ""
     @State private var creating = false
     @State private var cloning = false
+    @State private var selection = 0
+    @State private var keyMonitor: Any?
+    @FocusState private var queryFocused: Bool
     struct Action: Identifiable { var id: String { key ?? name }; var key: String? = nil; let name: String; let icon: String; let run: () -> Void }
     var actions: [Action] {
         var result = [
-            Action(name: "Add folder or repository", icon: "folder.badge.plus", run: { model.open() }),
-            Action(name: "New terminal tab", icon: "terminal", run: { model.addTab() }),
-            Action(name: "Create worktree…", icon: "arrow.triangle.branch", run: { creating = true }),
+            Action(key: "⇧⌘T", name: "New terminal tab", icon: "terminal", run: { model.addTab() }),
+            Action(key: "⌘N", name: "Create worktree…", icon: "arrow.triangle.branch", run: { model.showCreateSheet = true }),
+            Action(key: "⌘O", name: "Add folder or repository", icon: "folder.badge.plus", run: { model.open() }),
             Action(name: "Clone repository…", icon: "square.and.arrow.down", run: { cloning = true }),
+            Action(key: "⌘R", name: "Run primary script", icon: "play.fill", run: { if let script = model.primaryScript { model.runScript(script) } }),
             Action(name: "Refresh repositories", icon: "arrow.clockwise", run: { Task { await model.reload() } }),
-            Action(name: "Refresh GitHub pull request", icon: "arrow.triangle.pull", run: { Task { await model.refreshPR() } })
+            Action(name: "Refresh GitHub pull request", icon: "arrow.triangle.pull", run: { Task { await model.refreshPR() } }),
+            Action(key: "⌘⇧A", name: "Next worktree needing attention", icon: "exclamationmark.triangle", run: { model.jumpToNextAttention() }),
+            Action(key: "⌃⌘C", name: "Copy worktree path", icon: "doc.on.doc", run: { model.copyWorktreePath() }),
+            Action(key: "⇧⌘B", name: "Copy branch name", icon: "doc.on.doc", run: { model.copyBranchName() }),
+            Action(key: "⌘D", name: "Split terminal left / right", icon: "rectangle.split.2x1", run: { if let path = model.selected?.path, let active = model.activeTab(at: path) { model.split(tab: active.id, vertical: true) } }),
+            Action(key: "⇧⌘D", name: "Split terminal top / bottom", icon: "rectangle.split.2x2", run: { if let path = model.selected?.path, let active = model.activeTab(at: path) { model.split(tab: active.id, vertical: false) } }),
+            Action(key: "⌘W", name: "Close pane or tab", icon: "xmark", run: { model.closeFocused() })
         ]
         for root in model.roots {
             for tree in model.trees[root] ?? [] { result.append(Action(name: "Go to \(URL(fileURLWithPath: root).lastPathComponent) / \(tree.branch)", icon: "arrow.triangle.branch", run: { model.select(tree) })) }
@@ -69,18 +80,32 @@ struct PaletteView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("Where do you want to go?", text: $query).font(.title3).textFieldStyle(.plain).onSubmit { executeFirst() }
+            TextField("Where do you want to go?", text: $query)
+                .font(.title3).textFieldStyle(.plain)
+                .focused($queryFocused)
+                .onSubmit { executeSelection() }
+                .onChange(of: query) { _, _ in selection = 0 }
             Divider()
             ScrollView {
                 VStack(spacing: 4) {
-                    ForEach(actions) { action in
-                        Button { action.run(); if !creating && !cloning { model.palette = false } } label: { HStack { Label(action.name, systemImage: action.icon); Spacer(); Image(systemName: "return") }.padding(10).contentShape(Rectangle()) }.buttonStyle(.plain)
+                    ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                        Button { execute(action) } label: {
+                            HStack {
+                                Label(action.name, systemImage: action.icon)
+                                Spacer()
+                                if let key = action.key {
+                                    Text(key).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                                }
+                                if index == selection { Image(systemName: "return") }
+                            }.padding(10).contentShape(Rectangle())
+                            .background(index == selection ? Color.primary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                        }.buttonStyle(.plain)
                     }
                 }
             }
             if creating {
                 TextField("New branch name", text: $branch)
-                Button("Create worktree") { Task { await model.create(branch) }; model.palette = false }.disabled(branch.isEmpty)
+                Button("Create worktree") { Task { await model.create(branch) }; model.palette = false }.disabled(branch.isEmpty || model.busy)
             }
             if cloning {
                 TextField("HTTPS or SSH Git URL", text: $cloneURL)
@@ -90,10 +115,31 @@ struct PaletteView: View {
                 }.disabled(cloneURL.isEmpty)
             }
             if !model.pullRequest.isEmpty { ScrollView { Text(model.pullRequest).font(.system(size: 11, design: .monospaced)).textSelection(.enabled) }.frame(height: 100) }
-            HStack { Text("GROVE COMMANDS").font(.caption2).foregroundStyle(.secondary); Spacer(); Button("Done") { model.palette = false }.keyboardShortcut(.cancelAction) }
+            HStack { Text("GROVE COMMANDS").font(.caption2).foregroundStyle(.secondary); Spacer(); Text("↑↓ navigate · Return run · Esc close").font(.caption2).foregroundStyle(.secondary) }
         }.padding(20).frame(width: 560, height: 420)
+        .onAppear {
+            queryFocused = true
+            // Arrow-key navigation: the query field is first responder, so
+            // .onMoveCommand on containers never fires — intercept locally.
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard !creating && !cloning else { return event }
+                switch event.keyCode {
+                case 125: selection = min(selection + 1, max(actions.count - 1, 0)); return nil
+                case 126: selection = max(selection - 1, 0); return nil
+                default: return event
+                }
+            }
+        }
+        .onDisappear { if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }; keyMonitor = nil }
     }
-    func executeFirst() { if let action = actions.first { action.run(); if !creating && !cloning { model.palette = false } } }
+    func execute(_ action: Action) {
+        action.run()
+        if !creating && !cloning { model.palette = false; model.restoreFocus() }
+    }
+    func executeSelection() {
+        if actions.indices.contains(selection) { execute(actions[selection]) }
+        else if let first = actions.first { execute(first) }
+    }
 }
 
 struct ShortcutsHelpView: View {
@@ -106,19 +152,29 @@ struct ShortcutsHelpView: View {
                     shortcut("Add repository or folder", "⌘O")
                     shortcut("Create worktree", "⌘N")
                     shortcut("New terminal tab", "⇧⌘T")
-                    shortcut("Command palette", "⇧⌘P")
+                    shortcut("Command palette", "⌘K or ⇧⌘P")
                     shortcut("Go to worktree 1–9", "⌃1–9")
                     shortcut("Find in terminal", "⌘F")
+                    shortcut("Close pane / tab", "⌘W")
+                    shortcut("Split left / right", "⌘D")
+                    shortcut("Split top / bottom", "⇧⌘D")
+                    shortcut("Next / previous tab", "⇧⌘] / ⇧⌘[")
+                    shortcut("Next worktree needing attention", "⌘⇧A")
+                    shortcut("Copy worktree path", "⌃⌘C")
+                    shortcut("Copy branch name", "⇧⌘B")
+                    shortcut("Archive worktree", "⇧⌘⌫")
+                    shortcut("Remove worktree…", "⌘⌫")
+                    shortcut("Confirm destructive dialog", "⌘Return")
                     shortcut("Run primary script", "⌘R")
                     shortcut("Stop primary script", "⌘.")
                     shortcut("Interrupt terminal command", "⌃C")
-                    shortcut("Run first palette result", "Return")
+                    shortcut("Navigate command palette", "↑↓ · Return")
                     shortcut("Close command palette", "Escape")
                     shortcut("Open Settings", "⌘,")
                     shortcut("Quit Grove", "⌘Q")
                 }
                 Divider()
-                Text("Run and Stop target the first available Run-type script. Find and Interrupt need focus in a terminal pane. Worktree numbers follow sidebar ordering and exclude hidden archived worktrees.")
+                Text("Run and Stop target the first available Run-type script. Find falls back to the selected worktree's terminal when no pane holds focus. Worktree numbers follow sidebar ordering and exclude hidden archived worktrees.")
                     .font(.callout).foregroundStyle(.secondary)
                 Text("Regular Quit keeps persistent terminal sessions alive. Use Workspace → Quit and End Grove Sessions to stop them.")
                     .font(.callout).foregroundStyle(.secondary)
