@@ -85,13 +85,86 @@ import AppKit
     }
 }
 
+/// Sidebar owns its search state: keeping the search field here means every
+/// keystroke only re-evaluates the sidebar, not the whole content view with
+/// every terminal pane's NSViewRepresentable update pass.
+struct SidebarView: View {
+    @EnvironmentObject var model: Workspace
+    @ObservedObject private var profile = PerformanceProfileManager.shared
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding var renamedBranch: String
+    @State private var search = ""
+    @State private var searchCollapsedRoots = Set<String>()
+    private let accent = Color(red: 0.68, green: 0.88, blue: 0.51)
+    private var theme: AppTheme {
+        AppTheme.resolved(tier: profile.effectiveTier, animationsEnabled: profile.animationsEnabled,
+                          scheme: colorScheme, reduceTransparency: reduceTransparency, reduceMotion: reduceMotion)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Image(systemName: "leaf.fill").foregroundStyle(accent).font(.title2)
+                Text("grove").font(.system(size: 25, weight: .semibold, design: .rounded))
+                Spacer()
+                Text("LOCAL").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+            }.padding(.top, 24)
+            Text("A little space for big ideas.").font(.caption).foregroundStyle(.secondary)
+            TextField("Find a worktree…", text: $search).textFieldStyle(.roundedBorder)
+            HStack { Text("REPOSITORIES").font(.system(size: 10, weight: .semibold)).tracking(1.5).foregroundStyle(.secondary); Spacer(); Button { model.open() } label: { Image(systemName: "plus").frame(width: 28, height: 28).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("Add repository").help("Add repository") }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(model.roots, id: \.self) { root in
+                        DisclosureGroup(isExpanded: Binding(
+                            get: { search.isEmpty ? model.saved.collapsedRoots?.contains(root) != true : !searchCollapsedRoots.contains(root) },
+                            set: { expanded in
+                                if search.isEmpty {
+                                    var collapsed = model.saved.collapsedRoots ?? []
+                                    if expanded { collapsed.remove(root) } else { collapsed.insert(root) }
+                                    model.saved.collapsedRoots = collapsed; model.save()
+                                } else {
+                                    if expanded { searchCollapsedRoots.remove(root) } else { searchCollapsedRoots.insert(root) }
+                                }
+                            }
+                        )) {
+                            ForEach(model.visibleTrees(root).filter { search.isEmpty || $0.branch.localizedCaseInsensitiveContains(search) }) { tree in
+                                WorktreeRow(tree: tree, isSelected: model.selected == tree, accent: accent)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { model.select(tree) }
+                                    .contextMenu {
+                                        Button(model.saved.pinned.contains(tree.path) ? "Unpin" : "Pin") { model.pin(tree) }
+                                        Button(model.saved.archived.contains(tree.path) ? "Unarchive" : "Archive") { model.archive(tree) }
+                                        Button("Rename branch…") { renamedBranch = tree.branch; model.requestRename(tree) }
+                                        Button("Remove worktree…", role: .destructive) { model.requestRemove(tree) }.disabled(tree.path == root || model.isFolder(root))
+                                        Button("Reveal in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) }
+                                    }
+                            }
+                        } label: {
+                            Label(URL(fileURLWithPath: root).lastPathComponent, systemImage: "folder")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            Button { model.snapshotFocus(); model.showCreateSheet = true } label: { Label("New worktree", systemImage: "plus").frame(maxWidth: .infinity).padding(7) }
+                .buttonStyle(.bordered).disabled(model.selected == nil || model.busy)
+            Toggle("Show archived", isOn: $model.showArchived).font(.caption)
+            PerformancePill(profile: profile, accent: accent)
+            Button("Command palette  ⌘K") { model.snapshotFocus(); model.palette = true }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+        }.padding(20).frame(width: 245)
+            .background(theme.material.map { AnyShapeStyle($0) } ?? AnyShapeStyle(theme.sidebarBackground))
+            .environment(\.appTheme, theme)
+            .onChange(of: search) { _, _ in searchCollapsedRoots.removeAll() }
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var model: Workspace
     @Environment(\.colorScheme) private var colorScheme
     @State private var renamedBranch = ""
     @State private var branch = ""
-    @State private var search = ""
-    @State private var searchCollapsedRoots = Set<String>()
     @State private var reviewing = false
     @State private var browsing = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -104,59 +177,7 @@ struct ContentView: View {
     }
     var body: some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Image(systemName: "leaf.fill").foregroundStyle(accent).font(.title2)
-                    Text("grove").font(.system(size: 25, weight: .semibold, design: .rounded))
-                    Spacer()
-                    Text("LOCAL").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                }.padding(.top, 24)
-                Text("A little space for big ideas.").font(.caption).foregroundStyle(.secondary)
-                TextField("Find a worktree…", text: $search).textFieldStyle(.roundedBorder)
-                HStack { Text("REPOSITORIES").font(.system(size: 10, weight: .semibold)).tracking(1.5).foregroundStyle(.secondary); Spacer(); Button { model.open() } label: { Image(systemName: "plus").frame(width: 28, height: 28).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("Add repository").help("Add repository") }
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        ForEach(model.roots, id: \.self) { root in
-                            DisclosureGroup(isExpanded: Binding(
-                                get: { search.isEmpty ? model.saved.collapsedRoots?.contains(root) != true : !searchCollapsedRoots.contains(root) },
-                                set: { expanded in
-                                    if search.isEmpty {
-                                        var collapsed = model.saved.collapsedRoots ?? []
-                                        if expanded { collapsed.remove(root) } else { collapsed.insert(root) }
-                                        model.saved.collapsedRoots = collapsed; model.save()
-                                    } else {
-                                        if expanded { searchCollapsedRoots.remove(root) } else { searchCollapsedRoots.insert(root) }
-                                    }
-                                }
-                            )) {
-                                ForEach(model.visibleTrees(root).filter { search.isEmpty || $0.branch.localizedCaseInsensitiveContains(search) }) { tree in
-                                    WorktreeRow(tree: tree, isSelected: model.selected == tree, accent: accent)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture { model.select(tree) }
-                                    .contextMenu {
-                                        Button(model.saved.pinned.contains(tree.path) ? "Unpin" : "Pin") { model.pin(tree) }
-                                        Button(model.saved.archived.contains(tree.path) ? "Unarchive" : "Archive") { model.archive(tree) }
-                                        Button("Rename branch…") { renamedBranch = tree.branch; model.requestRename(tree) }
-                                        Button("Remove worktree…", role: .destructive) { model.requestRemove(tree) }.disabled(tree.path == root || model.isFolder(root))
-                                        Button("Reveal in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) }
-                                    }
-                                }
-                            } label: {
-                                Label(URL(fileURLWithPath: root).lastPathComponent, systemImage: "folder")
-                                    .font(.system(size: 13, weight: .semibold))
-                            }
-                        }
-                    }
-                }
-                Spacer(minLength: 0)
-                Button { model.snapshotFocus(); model.showCreateSheet = true } label: { Label("New worktree", systemImage: "plus").frame(maxWidth: .infinity).padding(7) }
-                    .buttonStyle(.bordered).disabled(model.selected == nil || model.busy)
-                Toggle("Show archived", isOn: $model.showArchived).font(.caption)
-                PerformancePill(profile: profile, accent: accent)
-                Button("Command palette  ⌘K") { model.snapshotFocus(); model.palette = true }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
-            }.padding(20).frame(width: 245)
-                .background(theme.material.map { AnyShapeStyle($0) } ?? AnyShapeStyle(theme.sidebarBackground))
-                .environment(\.appTheme, theme)
+            SidebarView(renamedBranch: $renamedBranch)
             Divider()
             VStack(spacing: 0) {
                 if let tree = model.selected {
@@ -200,7 +221,6 @@ struct ContentView: View {
         }
         .animation(theme.animationsEnabled ? .easeInOut(duration: 0.15) : nil, value: profile.effectiveTier)
         .environment(\.appTheme, theme)
-        .onChange(of: search) { _, _ in searchCollapsedRoots.removeAll() }
         .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didWakeNotification)) { _ in
             Task { await model.reload() }
         }
