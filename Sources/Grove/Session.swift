@@ -14,13 +14,22 @@ import Darwin
     /// against redundant `nativeBackgroundColor` assignments from frequent
     /// `updateNSView` passes (each assignment forces cached-state refresh).
     var appliedBackground: NSColor?
+    /// Last terminal font applied to this session's view; guards against
+    /// redundant `view.font` assignments, each of which forces SwiftTerm to
+    /// rebuild its FontSet, recompute cell metrics, clear selections and
+    /// re-render the whole terminal on the main thread.
+    var appliedFont: NSFont?
     init(_ record: PaneRecord) { self.record = record; title = record.title }
     func terminal(path: String, font: NSFont, persistent: Bool, background: NSColor) -> LocalProcessTerminalView {
-        if let view { view.font = font; return view }
+        if let view {
+            if appliedFont != font { appliedFont = font; view.font = font }
+            return view
+        }
         let terminal = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         if state == "Ended" { view = terminal; return terminal }
         terminal.processDelegate = self
         terminal.font = font
+        appliedFont = font
         // Prompt-theme icons (Nerd Font/Powerline codepoints) render from an
         // installed patched font even when the selected font lacks them.
         terminal.glyphFallbackProvider = NerdFontFallback.shared
