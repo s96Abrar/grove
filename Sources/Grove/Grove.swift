@@ -113,7 +113,7 @@ struct ContentView: View {
                 }.padding(.top, 24)
                 Text("A little space for big ideas.").font(.caption).foregroundStyle(.secondary)
                 TextField("Find a worktree…", text: $search).textFieldStyle(.roundedBorder)
-                HStack { Text("REPOSITORIES").font(.system(size: 10, weight: .semibold)).tracking(1.5).foregroundStyle(.secondary); Spacer(); Button { model.open() } label: { Image(systemName: "plus") }.buttonStyle(.plain).help("Add repository") }
+                HStack { Text("REPOSITORIES").font(.system(size: 10, weight: .semibold)).tracking(1.5).foregroundStyle(.secondary); Spacer(); Button { model.open() } label: { Image(systemName: "plus").frame(width: 28, height: 28).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("Add repository").help("Add repository") }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         ForEach(model.roots, id: \.self) { root in

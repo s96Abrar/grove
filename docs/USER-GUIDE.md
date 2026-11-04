@@ -4,6 +4,8 @@ Grove 0.3 is an independent native macOS app. It provides interactive shells ins
 
 ## Add a workspace
 
+After rebuilding or replacing Grove, quit the running app normally and reopen the new bundle. Opening its app link while the old process is running can simply activate that old process. If both **+** and Command-O fail to show a picker, restart Grove first; do not reset workspace metadata or delete repositories. Persistent terminals remain available across normal Quit.
+
 Open `dist/Grove.app`, then press Command-O or choose **Add Repository** to pick a local repository or plain folder. Git repositories show existing worktrees; a plain folder shows one folder workspace. Choose a sidebar row to select its working directory. Saved roots and the selected worktree survive relaunch. Use the disclosure arrow beside each repository or folder heading to expand or collapse its worktrees. Each heading remembers its state across launches; new repositories start expanded. Collapsing a heading keeps the selected worktree and its terminal sessions open. Searching temporarily expands the headings to reveal matching worktrees; you can collapse them during that search, and clearing the search restores your saved expansion states.
 
 Press Shift-Command-P for the command palette. It matches characters in order, so abbreviated queries can find commands. Up/Down choose a result and Return executes it. The palette offers workspace navigation, add, clone, create worktree, new tab, refresh, scripts and manual GitHub lookup. Command-K also opens the palette. Escape exits a clone subform, clears a query, then closes the palette; modified arrows and input-method composition keep their normal behavior.

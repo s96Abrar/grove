@@ -2,6 +2,12 @@
 
 Local host: Apple Silicon, macOS 27, Swift 6.4 / Xcode 27.1. This records bounded observations, not a claim that every supported system or Supacode feature has been verified.
 
+## Repository add picker — 2026-11-04
+
+The user reported both the repository plus button and Command-O failing. The running process (PID 10903) was launched November 2 and remained alive after subsequent bundle replacements. Its November 4 log recorded `OpenSavePanels: Unable to display open panel`, with an interrupted Open/Save panel service XPC connection. Normal termination requested through `NSRunningApplication` did not complete within ten seconds; no forced termination was attempted. The user then manually quit and reopened the rebuilt bundle and confirmed the folder dialog opens. That establishes restart recovery for this instance; the precise OS service failure mechanism remains unproven.
+
+Separately, an isolated UI check confirmed the old plus button missed a click just left of its glyph. Giving the control a 28-point rectangular hit target and an explicit accessible label changed that test from failing to passing. The final opt-in GUI/native run passed **12 XCTest cases, zero failures**, including observing and cancelling the actual folder panel. The host arm64 app rebuilt and passed bundle/signature verification. Folder selection/import was not automated; recovery in the user's app was confirmed by the user after reopening.
+
 ## UI/UX branch corrective review — 2026-11-04
 
 Reviewed both commits on `uiux-refactor` against `main`, including the project documentation. The initial actual-module regression run reproduced 10 assertion failures across five of six cases. After the corrections, the expanded suite passed all 11 cases. These cover real Git cleanup/removal, locked checkouts and hook-created commits, session identity and removal races, diff paths/metadata/numbering, triage and accessibility policy. A separate check passed actual profile transition callbacks and SDK thermal notification delivery. See [the claims, corrections and evidence](UIUX-BRANCH-REVIEW.md).

@@ -32,6 +32,7 @@ Do not delete a managed checkout using a generic file-manager operation when Git
 
 | Symptom | Check/action |
 |---|---|
+| Both repository **+** and Command-O show no folder picker after rebuilding | Quit and reopen the replaced app bundle. Inspect Grove's `OpenSavePanels` logs for XPC service failures if it persists. A running process can still use the earlier executable after its on-disk bundle has been replaced; do not reset workspace data or disable macOS protections. |
 | Swift build cannot write compiler/SwiftPM cache | Inspect the actual sandbox/cache failure; grant required build access through the host approval flow. |
 | New branch fails | Inspect the Git error; a Git repository needs a commit and a valid, unused branch name. Plain folders cannot create worktrees. |
 | Created directory is not selected | Compare Git’s canonical path to app identity; macOS `/var` and `/private/var` aliases need consistent handling. |
