@@ -263,7 +263,7 @@ import AppKit
             }
             return result
         }.value
-        diffStats = stats
+        if diffStats != stats { diffStats = stats }
         recordStatusSnapshot()
     }
 
@@ -370,7 +370,13 @@ import AppKit
     func reload() async {
         guard !refreshing else { return }; refreshing = true; defer { refreshing = false }
         for root in roots {
-            do { trees[root] = try await Task.detached { try Git.list(at: root) }.value }
+            do {
+                // Publish only on actual change: unconditional reassignment
+                // fires objectWillChange and re-renders every observing view
+                // on every poll tick, even for an idle workspace.
+                let listed = try await Task.detached { try Git.list(at: root) }.value
+                if trees[root] != listed { trees[root] = listed }
+            }
             catch {
                 if isFolder(root) && FileManager.default.fileExists(atPath: root) { trees[root] = [Worktree(path: root, branch: URL(fileURLWithPath: root).lastPathComponent)] }
                 else { backgroundError = "Background repository refresh failed: \(error.localizedDescription)" }
@@ -392,7 +398,11 @@ import AppKit
                 let diff = (try? Git.run(["diff", "--no-ext-diff", "--no-color", "HEAD", "--"], at: tree.path)) ?? "No commits yet."
                 return (status, diff)
             }.value
-            guard selected == tree else { return }; status = result.0; diff = result.1
+            guard selected == tree else { return }
+            // Publish only on change; identical status/diff strings fire
+            // objectWillChange and re-render the whole changes view anyway.
+            if status != result.0 { status = result.0 }
+            if diff != result.1 { diff = result.1 }
         } catch {
             if background { backgroundError = "Background changes refresh failed: " + error.localizedDescription }
             else { self.error = error.localizedDescription }
