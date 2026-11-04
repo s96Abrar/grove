@@ -1,0 +1,266 @@
+import XCTest
+import Combine
+@testable import Grove
+
+final class RegressionTests: XCTestCase {
+    @MainActor private func fixture() throws -> (Workspace, Worktree, URL) {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("grove-review-" + UUID().uuidString)
+        let repo = base.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: base) }
+        _ = try Git.run(["init", "-b", "main"], at: repo.path)
+        _ = try Git.run(["-c", "user.name=Check", "-c", "user.email=check@example.test", "commit", "--allow-empty", "-m", "initial"], at: repo.path)
+        let root = try Git.run(["rev-parse", "--show-toplevel"], at: repo.path).trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = try Git.create(branch: "task", at: root)
+        let tree = Worktree(path: path, branch: "task")
+        let model = Workspace(verificationPath: base.path)
+        model.saved = SavedWorkspace(roots: [root], tabs: [path: [TabRecord(panes: [PaneRecord(command: "echo do-not-replay")])]])
+        model.trees = [root: [Worktree(path: root, branch: "main"), tree]]
+        model.selected = tree
+        return (model, tree, base)
+    }
+
+    @MainActor func testDirtyAndMainRemovalKeepSessions() async throws {
+        let (model, tree, _) = try fixture()
+        let pane = model.saved.tabs[tree.path]![0].panes[0]
+        let session = model.session(pane)
+        try "preserve".write(toFile: tree.path + "/untracked", atomically: true, encoding: .utf8)
+        await model.remove(tree)
+        XCTAssertTrue(model.sessions[pane.id] === session)
+        XCTAssertEqual(session.state, "Starting")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tree.path))
+        let main = model.trees[model.roots[0]]![0]
+        model.saved.tabs[main.path] = [TabRecord()]
+        let mainPane = model.saved.tabs[main.path]![0].panes[0]
+        let mainSession = model.session(mainPane)
+        await model.remove(main)
+        XCTAssertTrue(model.sessions[mainPane.id] === mainSession)
+        XCTAssertEqual(mainSession.state, "Starting")
+    }
+
+    @MainActor func testLockedRemovalKeepsSession() async throws {
+        let (model, tree, _) = try fixture()
+        let pane = model.saved.tabs[tree.path]![0].panes[0]
+        let session = model.session(pane)
+        _ = try Git.run(["worktree", "lock", tree.path], at: model.roots[0])
+        await model.remove(tree)
+        XCTAssertTrue(model.sessions[pane.id] === session)
+        XCTAssertEqual(session.state, "Starting")
+        XCTAssertTrue(model.error?.contains("locked") == true)
+    }
+
+    @MainActor func testFailureAfterTeardownRetainsEndedSession() async throws {
+        let (model, tree, _) = try fixture()
+        let pane = model.saved.tabs[tree.path]![0].panes[0]
+        let session = model.session(pane)
+        // Reproduce a checkout becoming dirty between preflight and final Git removal.
+        let subscription = session.$state.sink { state in
+            if state == "Ended" { try? "keep".write(toFile: tree.path + "/changed-during-teardown", atomically: true, encoding: .utf8) }
+        }
+        await model.remove(tree)
+        withExtendedLifetime(subscription) {}
+        XCTAssertNotNil(model.error)
+        XCTAssertNotNil(model.saved.tabs[tree.path])
+        XCTAssertTrue(model.session(pane) === session, "A redraw must not create a fresh session/startup command")
+        XCTAssertEqual(session.state, "Ended")
+    }
+
+    @MainActor func testSuccessfulRemovalEndsOnlyOwnedSession() async throws {
+        let (model, tree, _) = try fixture()
+        let pane = model.saved.tabs[tree.path]![0].panes[0]
+        let otherID = UUID()
+        guard let tmux = PersistentTerminal.tmux else { throw XCTSkip("tmux is required") }
+        func command(_ arguments: [String]) throws -> Int32 {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: tmux)
+            process.arguments = ["-L", "grove", "-f", PersistentTerminal.configuration] + arguments
+            process.environment = PersistentTerminal.environment(ProcessInfo.processInfo.environment)
+            process.standardInput = FileHandle.nullDevice; process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+            try process.run(); process.waitUntilExit(); return process.terminationStatus
+        }
+        let target = "grove-" + pane.id.uuidString, sibling = "grove-" + otherID.uuidString
+        XCTAssertEqual(try command(["new-session", "-d", "-s", target, "/bin/sleep 60"]), 0)
+        XCTAssertEqual(try command(["new-session", "-d", "-s", sibling, "/bin/sleep 60"]), 0)
+        defer { try? PersistentTerminal.end(name: target); try? PersistentTerminal.end(name: sibling) }
+        await model.remove(tree)
+        XCTAssertNil(model.error)
+        XCTAssertNil(model.saved.tabs[tree.path])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tree.path))
+        XCTAssertNotEqual(try command(["has-session", "-t", "=" + target]), 0)
+        XCTAssertEqual(try command(["has-session", "-t", "=" + sibling]), 0)
+    }
+
+    @MainActor func testRemovalBlocksConcurrentPaneCreation() async throws {
+        let (model, tree, base) = try fixture()
+        let root = model.roots[0], tab = model.saved.tabs[tree.path]![0]
+        let session = model.session(tab.panes[0])
+        try "tracked".write(toFile: tree.path + "/tracked", atomically: true, encoding: .utf8)
+        _ = try Git.run(["add", "tracked"], at: tree.path)
+        _ = try Git.run(["-c", "user.name=Check", "-c", "user.email=check@example.test", "commit", "-m", "tracked"], at: tree.path)
+        let block = base.appendingPathComponent("block"), entered = base.appendingPathComponent("entered"), release = base.appendingPathComponent("release")
+        let hook = base.appendingPathComponent("fsmonitor")
+        func quote(_ value: String) -> String { "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let script = "#!/bin/sh\nif [ -f " + quote(block.path) + " ]; then /usr/bin/touch " + quote(entered.path) + "; while [ ! -f " + quote(release.path) + " ]; do /bin/sleep .02; done; fi\nprintf 'token\\000'\n"
+        try script.write(to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        _ = try Git.run(["config", "core.fsmonitor", hook.path], at: root)
+        _ = try Git.run(["config", "core.fsmonitorHookVersion", "2"], at: root)
+        let subscription = session.$state.sink { state in
+            if state == "Ended" { try? Data().write(to: block) }
+        }
+        let removal = Task { @MainActor in await model.remove(tree) }
+        let deadline = Date().addingTimeInterval(10)
+        while !FileManager.default.fileExists(atPath: entered.path), Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        defer { try? Data().write(to: release) }
+        guard FileManager.default.fileExists(atPath: entered.path) else {
+            try Data().write(to: release); await removal.value
+            return XCTFail("Git final-validation fixture never reached its barrier")
+        }
+        XCTAssertTrue(model.isRemoving(tree.path))
+        await model.closeTab(tab, at: tree.path)
+        model.addTab(); model.split(tab: tab.id, vertical: true)
+        XCTAssertEqual(model.saved.tabs[tree.path]?.map(\.id), [tab.id])
+        XCTAssertEqual(model.saved.tabs[tree.path]?.first?.panes.count, 1)
+        let main = Worktree(path: root, branch: "main")
+        model.selected = main; model.select(tree)
+        XCTAssertEqual(model.selected, main)
+        try Data().write(to: release)
+        await removal.value
+        withExtendedLifetime(subscription) {}
+        XCTAssertNil(model.error)
+        XCTAssertNil(model.saved.tabs[tree.path])
+    }
+
+    func testFailedCreationCleansRegistrationAndKeepsHookCommit() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("grove-hook-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let repo = base.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        _ = try Git.run(["init", "-b", "main"], at: repo.path)
+        _ = try Git.run(["config", "user.name", "Check"], at: repo.path)
+        _ = try Git.run(["config", "user.email", "check@example.test"], at: repo.path)
+        _ = try Git.run(["commit", "--allow-empty", "-m", "initial"], at: repo.path)
+        let unrelated = try Git.create(branch: "temporarily-missing", at: repo.path)
+        try FileManager.default.removeItem(atPath: unrelated)
+        let hook = repo.appendingPathComponent(".git/hooks/post-checkout")
+        try "#!/bin/sh\ngit -c core.hooksPath=/dev/null commit --allow-empty -m hook-created\nexit 1\n".write(to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        XCTAssertThrowsError(try Git.create(branch: "failure", at: repo.path))
+        let roster = try Git.list(at: repo.path)
+        XCTAssertEqual(roster.count, 2, "Only the failed checkout registration should be removed")
+        XCTAssertTrue(roster.contains { $0.branch == "temporarily-missing" })
+        XCTAssertFalse(roster.contains { $0.branch == "failure" })
+        XCTAssertEqual(try Git.run(["log", "-1", "--format=%s", "failure"], at: repo.path).trimmingCharacters(in: .whitespacesAndNewlines), "hook-created")
+    }
+
+    func testFailedCreationPreservesLockedCheckout() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("grove-locked-hook-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let repo = base.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        _ = try Git.run(["init", "-b", "main"], at: repo.path)
+        _ = try Git.run(["-c", "user.name=Check", "-c", "user.email=check@example.test", "commit", "--allow-empty", "-m", "initial"], at: repo.path)
+        let hook = repo.appendingPathComponent(".git/hooks/post-checkout")
+        try "#!/bin/sh\ngit worktree lock \"$PWD\"\nexit 1\n".write(to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        XCTAssertThrowsError(try Git.create(branch: "locked-failure", at: repo.path)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("cleanup is incomplete"))
+        }
+        let failed = try XCTUnwrap(try Git.list(at: repo.path).first { $0.branch == "locked-failure" })
+        XCTAssertTrue(FileManager.default.fileExists(atPath: failed.path), "A lock must preserve its checkout")
+    }
+
+    @MainActor func testTriageRequiresConsecutiveSamplesAndHonorsToggle() async throws {
+        XCTAssertNotEqual(Bundle.main.bundleIdentifier, "local.grove.workspace")
+        let oldPreference = UserDefaults.standard.object(forKey: "triageSort")
+        defer {
+            if let oldPreference { UserDefaults.standard.set(oldPreference, forKey: "triageSort") }
+            else { UserDefaults.standard.removeObject(forKey: "triageSort") }
+        }
+        let (model, tree, _) = try fixture()
+        let root = model.roots[0]
+        let first = Worktree(path: root + "/a", branch: "aaa")
+        model.trees[root] = [first, tree]
+        let pane = model.saved.tabs[tree.path]![0].panes[0]
+        let session = model.session(pane)
+        session.state = "Exited 1"
+        model.triageSort = true
+        model.recordStatusSnapshot()
+        XCTAssertEqual(model.visibleTrees(root).first?.path, first.path)
+        model.recordStatusSnapshot()
+        XCTAssertEqual(model.visibleTrees(root).first?.path, tree.path)
+        session.state = "Shell"
+        model.recordStatusSnapshot()
+        XCTAssertEqual(model.visibleTrees(root).first?.path, tree.path)
+        model.recordStatusSnapshot()
+        XCTAssertEqual(model.visibleTrees(root).first?.path, first.path)
+        session.state = "Exited 1"; model.recordStatusSnapshot(); model.recordStatusSnapshot()
+        model.triageSort = false
+        XCTAssertEqual(model.visibleTrees(root).first?.path, first.path)
+        model.saved.pinned.insert(first.path); model.triageSort = true
+        XCTAssertEqual(model.visibleTrees(root).first?.path, first.path)
+    }
+
+    func testDiffPathsAndSplitContextNumbers() throws {
+        let raw = """
+        diff --git a/image.bin b/image.bin
+        index a..b 100644
+        Binary files a/image.bin and b/image.bin differ
+        diff --git a/empty file b/empty file
+        new file mode 100644
+        index 0000000..e69de29
+        diff --git "a/caf\\303\\251\\tfile" "b/caf\\303\\251\\tfile"
+        index a..b 100644
+        --- "a/caf\\303\\251\\tfile"
+        +++ "b/caf\\303\\251\\tfile"
+        @@ -1,2 +1,3 @@
+         before
+        +inserted
+         after
+        """
+        let files = GitDiffParser.parse(raw)
+        XCTAssertEqual(files.map(\.path), ["image.bin", "empty file", "café\tfile"])
+        let context = try XCTUnwrap(files.last?.hunks.first?.lines.last)
+        XCTAssertEqual(SplitCell(line: context, oldSide: false).lineNumber, 3)
+        XCTAssertEqual(SplitCell(line: context, oldSide: true).lineNumber, 2)
+    }
+    func testRealGitDiffPathsAndMetadata() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("grove-diff-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try Git.run(["init", "-b", "main"], at: root.path)
+        let names = ["binary b/data.bin", "café\tquoted\".txt", "mode file.txt", "text with spaces.txt"]
+        for name in names {
+            let url = root.appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(name.hasSuffix(".bin") ? [0, 1] : Array("before\n".utf8)).write(to: url)
+        }
+        _ = try Git.run(["add", "."], at: root.path)
+        _ = try Git.run(["-c", "user.name=Check", "-c", "user.email=check@example.test", "commit", "-m", "files"], at: root.path)
+        try Data([0, 2]).write(to: root.appendingPathComponent(names[0]))
+        try "after space change\n".write(to: root.appendingPathComponent(names[3]), atomically: true, encoding: .utf8)
+        try "after".write(to: root.appendingPathComponent(names[1]), atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.appendingPathComponent(names[2]).path)
+        try Data().write(to: root.appendingPathComponent("empty file"))
+        _ = try Git.run(["add", "."], at: root.path)
+        let patch = try Git.run(["-c", "core.quotePath=true", "diff", "--no-ext-diff", "--no-color", "HEAD", "--"], at: root.path)
+        let files = GitDiffParser.parse(patch)
+        XCTAssertEqual(Set(files.map(\.path)), Set(names + ["empty file"]))
+        XCTAssertTrue(files.first { $0.path == names[0] }?.binary == true)
+        XCTAssertTrue(files.flatMap(\.hunks).flatMap(\.lines).contains { $0.kind == .meta && $0.text == "\\ No newline at end of file" })
+        XCTAssertTrue(files.first { $0.path == "empty file" }?.newFile == true)
+        XCTAssertEqual(files.first { $0.path == "mode file.txt" }?.metadata, ["old mode 100644", "new mode 100755"])
+    }
+
+    @MainActor func testThemeHonorsAccessibility() {
+        for preference in [(true, false), (false, true)] {
+            let theme = AppTheme.resolved(tier: .highPerformance, animationsEnabled: true,
+                scheme: .light, reduceTransparency: preference.0, reduceMotion: preference.1)
+            XCTAssertNil(theme.material)
+            XCTAssertFalse(theme.animationsEnabled)
+        }
+    }
+
+}

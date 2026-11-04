@@ -10,6 +10,9 @@ swiftc Sources/Grove/WorkspaceState.swift Sources/Grove/ScriptPreset.swift Check
 build/checks/script-check
 swiftc Sources/Grove/OpenTarget.swift Checks/OpenTargetCheck.swift -o build/checks/open-target-check
 build/checks/open-target-check
+swiftc Sources/Grove/PerformanceProfile.swift Checks/PerformanceProfileCheck.swift -o build/checks/profile-check
+build/checks/profile-check
+swift test --build-system native --scratch-path .build/review-tests --jobs "${GROVE_BUILD_JOBS:-2}" --force-resolved-versions
 python3 Checks/release_policy_check.py
 swiftc Sources/Grove/WorkspaceState.swift Sources/Grove/PersistentTerminal.swift Checks/TerminalBackendProbe.swift -o build/checks/terminal-backend-probe
 python3 Checks/screen_check.py

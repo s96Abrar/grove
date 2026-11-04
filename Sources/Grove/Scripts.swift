@@ -34,14 +34,14 @@ extension ScriptRecord {
         catch { self.error = "Could not stop this script: \(error.localizedDescription)" }
     }
     func restartScript(_ tab: TabRecord) async {
-        guard let path = selected?.path, let id = tab.scriptID,
+        guard let path = selected?.path, !isRemoving(path), let id = tab.scriptID,
               let script = availableScripts.first(where: { $0.id == id }),
               !script.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             error = "This script was removed or is unavailable. Add it in Settings → Scripts."; return
         }
         do { for pane in tab.panes { try await endSession(pane.id) } }
         catch { self.error = "Could not restart this script: \(error.localizedDescription)"; return }
-        guard selected?.path == path, let index = saved.tabs[path]?.firstIndex(where: { $0.id == tab.id }) else { return }
+        guard selected?.path == path, !isRemoving(path), let index = saved.tabs[path]?.firstIndex(where: { $0.id == tab.id }) else { return }
         for pane in tab.panes { sessions.removeValue(forKey: pane.id) }
         var replacement = TabRecord(name: script.name, panes: [PaneRecord(title: script.name, command: script.command)])
         replacement.scriptID = script.id

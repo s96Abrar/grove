@@ -198,7 +198,7 @@ struct ContentView: View {
                 }
             }.padding(.bottom, 6)
         }
-        .animation(profile.animationsEnabled ? .easeInOut(duration: 0.15) : nil, value: profile.effectiveTier)
+        .animation(theme.animationsEnabled ? .easeInOut(duration: 0.15) : nil, value: profile.effectiveTier)
         .environment(\.appTheme, theme)
         .onChange(of: search) { _, _ in searchCollapsedRoots.removeAll() }
         .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didWakeNotification)) { _ in
@@ -215,7 +215,8 @@ struct ContentView: View {
             await model.reload()
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(PerformanceProfileManager.shared.statusPollInterval)) } catch { break }
-                await model.reload(); await model.refreshChanges(); await model.pollDiffStats()
+                guard NSApp.isActive else { continue }
+                await model.reload(); await model.refreshChanges(background: true); await model.pollDiffStats()
             }
         }
         .sheet(isPresented: Binding(get: { model.pendingRename != nil }, set: { if !$0 { model.pendingRename = nil } }), onDismiss: { model.restoreFocus() }) {
@@ -305,7 +306,7 @@ struct SessionTabs: View {
             Button(closingPane == nil ? "Close Tab" : "Close Split", role: .destructive) {
                 if let request = model.pendingClose {
                     if let pane = request.pane { Task { await model.closePane(pane, in: request.tab, at: request.path) } }
-                    else if let tab = tabs.first(where: { $0.id == request.tab }) { Task { await model.closeTab(tab) } }
+                    else if let tab = tabs.first(where: { $0.id == request.tab }) { Task { await model.closeTab(tab, at: request.path) } }
                 }
                 model.pendingClose = nil
                 model.restoreFocus()
@@ -384,7 +385,7 @@ struct WorktreeRow: View {
                 .font(.system(size: compact ? 11 : 12, design: .monospaced))
                 .lineLimit(1)
             if let summary, summary.dirty {
-                Text(compact ? "•" : "+\(summary.additions) −\(summary.deletions)")
+                Text(compact || !summary.hasLineCounts ? "•" : "+\(summary.additions) −\(summary.deletions)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -437,7 +438,7 @@ struct PerformancePopover: View {
                 ForEach(PerformanceProfile.allCases) { mode in Text(mode.label).tag(mode) }
             }.pickerStyle(.inline)
             .labelsHidden()
-            Text("Efficient removes vibrancy and animations. Auto adapts to Low Power Mode and sustained thermal pressure.").font(.caption).foregroundStyle(.secondary)
+            Text("Efficient uses opaque surfaces and fewer visual effects. Auto adapts to Low Power Mode and sustained thermal pressure.").font(.caption).foregroundStyle(.secondary)
             if !profile.activeTriggers.isEmpty {
                 Label(profile.activeTriggers.joined(separator: ", "), systemImage: "bolt.badge.clock")
                     .font(.caption).foregroundStyle(.orange)
@@ -445,9 +446,9 @@ struct PerformancePopover: View {
             Divider()
             // Metrics computed on open; never a continuously published loop.
             HStack {
-                Text("Open terminals").font(.caption).foregroundStyle(.secondary)
+                Text("Terminal panes").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(model.sessions.count)").font(.caption.monospacedDigit())
+                Text("\(model.saved.tabs.values.flatMap { $0 }.reduce(0) { $0 + $1.panes.count })").font(.caption.monospacedDigit())
             }
             HStack {
                 Text("Visual tier").font(.caption).foregroundStyle(.secondary)

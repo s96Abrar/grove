@@ -6,7 +6,7 @@ Grove 0.3 is an independent native macOS app. It provides interactive shells ins
 
 Open `dist/Grove.app`, then press Command-O or choose **Add Repository** to pick a local repository or plain folder. Git repositories show existing worktrees; a plain folder shows one folder workspace. Choose a sidebar row to select its working directory. Saved roots and the selected worktree survive relaunch. Use the disclosure arrow beside each repository or folder heading to expand or collapse its worktrees. Each heading remembers its state across launches; new repositories start expanded. Collapsing a heading keeps the selected worktree and its terminal sessions open. Searching temporarily expands the headings to reveal matching worktrees; you can collapse them during that search, and clearing the search restores your saved expansion states.
 
-Press Shift-Command-P for the command palette. It matches characters in order, so abbreviated queries can find commands. Return executes the first matching action. The palette offers workspace navigation, add, clone, create worktree, new tab, refresh, scripts and manual GitHub lookup. Full arrow-key command selection is not implemented.
+Press Shift-Command-P for the command palette. It matches characters in order, so abbreviated queries can find commands. Up/Down choose a result and Return executes it. The palette offers workspace navigation, add, clone, create worktree, new tab, refresh, scripts and manual GitHub lookup. Command-K also opens the palette. Escape exits a clone subform, clears a query, then closes the palette; modified arrows and input-method composition keep their normal behavior.
 
 To clone, choose **Clone repository…** in the palette, enter an HTTPS or SSH Git URL, and select a parent folder. Grove creates a generated clone directory beneath it. Git credentials and host verification come from your existing tools.
 
@@ -14,7 +14,7 @@ To clone, choose **Clone repository…** in the palette, enter an HTTPS or SSH G
 
 Select a Git worktree, then press Command-N or select **New worktree**. Enter a new branch such as `feature/my-task`. Grove resolves the configured base reference to a commit (HEAD by default) and creates a checkout in a sibling `.grove-worktrees/<repository>/` directory. Existing files stay in their checkout. A plain folder cannot create Git worktrees. In Settings, change **New worktree base ref** to a branch, tag or commit. **Fetch before creating worktrees** optionally runs `git fetch --prune` first; it is off by default and uses your configured remotes/credentials. A failed fetch or unresolved base prevents creation.
 
-Control-1 through Control-9 jump to visible indexed worktrees. Right-click a sidebar row to pin/unpin or archive/unarchive it. Pinned rows sort first. Archived rows are hidden until **Show archived** is enabled. Archive changes workspace visibility; it does not delete files or Git refs. The context menu also offers **Rename branch…** and **Remove worktree…**. Removal requires confirmation, rejects the main checkout and worktrees with tracked or untracked uncommitted files, and keeps the Git branch. It removes the checkout and its saved tab/pin/archive metadata. Persistent sessions detach rather than being automatically terminated, so inspect those deliberately if cleaning up. Branch-deletion, lifecycle hooks and automatic expiration remain unimplemented.
+Control-1 through Control-9 jump to visible indexed worktrees. Right-click a sidebar row to pin/unpin or archive/unarchive it. Pinned rows sort first. Archived rows are hidden until **Show archived** is enabled. Archive changes workspace visibility; it does not delete files or Git refs. The context menu also offers **Rename branch…** and **Remove worktree…**. Removal requires confirmation, rejects the main checkout and worktrees with tracked or untracked uncommitted files, and keeps the Git branch. It removes the checkout and its saved tab/pin/archive metadata. Eligibility is checked before stopping sessions; successful worktree removal ends only its owned sessions and then deletes the checkout. A failure keeps terminal metadata and cached session identity, so startup scripts are not replayed by a redraw. Branch-deletion, lifecycle hooks and automatic expiration remain unimplemented.
 
 ## Work in embedded terminals
 
@@ -39,7 +39,7 @@ tmux -L grove kill-session -t '=grove-EXACT-PANE-UUID'
 /usr/bin/screen -S grove-EXACT-PANE-UUID -X quit
 ```
 
-The backend integration check proves interactive shell input and preservation of shell PID across detach/reattach. Full Grove quit/relaunch, scrollback restoration and every agent TUI remain app-level acceptance scenarios, not blanket guarantees.
+The backend check proves interactive input and same-PID detach/reattach. The packaged-app harness separately verifies SIGTERM termination/relaunch without command replay. Menu-Q interaction, visual scrollback and every agent TUI still require their own acceptance scenarios.
 
 ## Shortcut help
 
@@ -67,7 +67,7 @@ VS Code receives the selected worktree folder. Terminal opens a separate system 
 
 ## Review Git changes and PR metadata
 
-Select **Changes** to see short Git status and a combined tracked diff against HEAD, including staged and unstaged tracked changes. Untracked files appear in status only. Use **Files** to browse nonhidden directory entries, navigate into folders and open files in their system-default application. Git decorations, ignored-file policies and custom open-file scripts are not implemented. Local roster and selected-worktree status refresh every five seconds; **Refresh** explicitly requests new state. Finder reveals the selected directory.
+Select **Changes** to see short Git status and a combined tracked diff against HEAD, including staged and unstaged tracked changes. Choose **Unified** or **Split** for the colored file/hunk view. File headers can collapse; binary and file-mode changes retain their names, and split columns use their respective old/new line numbers. Untracked files appear in status only. Use **Files** to browse nonhidden directory entries, navigate into folders and open files in their system-default application. Git decorations, ignored-file policies and custom open-file scripts are not implemented. Local roster and selected-worktree status refresh while Grove is active (normally 5 seconds, 15 in Efficient mode); **Refresh** explicitly requests new state. Finder reveals the selected directory.
 
 For GitHub, first install/authenticate `gh` yourself, enable the GitHub setting, then choose **Refresh GitHub pull request** in the palette. The result is raw PR JSON for the selected worktree, including state, mergeability and check rollup. Reopen the palette to inspect the returned result if it closed while the request ran. This is manual metadata lookup, not live sidebar tracking, GitLab support, or PR mutation/merge controls.
 
@@ -84,7 +84,7 @@ python3 scripts/grove list
 python3 scripts/grove sessions
 ```
 
-Supported actions are `open`, `select`, `new-worktree`, `new-tab`, `split`, `list` and `sessions`. Mutation commands use the `grove://` URL scheme. When invoked inside a Grove pane, the CLI supplies `GROVE_WORKTREE_PATH` context; otherwise actions use the app selection. Split actions currently target the selected worktree’s last saved tab, not necessarily the visually active tab. `list` reads saved workspace metadata, not authoritative live state. `sessions` lists the Grove tmux server and then the legacy screen list (which may include non-Grove screen sessions). App IPC queries, complete pane/tab commands and full repo/tab/surface contextual defaults are not implemented. Deeplinks do not accept arbitrary shell commands.
+Supported actions are `open`, `select`, `new-worktree`, `new-tab`, `split`, `list` and `sessions`. Mutation commands use the `grove://` URL scheme. When invoked inside a Grove pane, the CLI supplies `GROVE_WORKTREE_PATH` context; otherwise actions use the app selection. Split actions use the selected worktree’s saved active tab, falling back to its last tab when no active ID is available. `list` reads saved workspace metadata, not authoritative live state. `sessions` lists the Grove tmux server and then the legacy screen list (which may include non-Grove screen sessions). App IPC queries, complete pane/tab commands and full repo/tab/surface contextual defaults are not implemented. Deeplinks do not accept arbitrary shell commands.
 
 See [privacy](PRIVACY.md), [development](DEVELOPMENT.md) and [testing](TESTING.md) for storage, external effects and verification boundaries.
 
@@ -95,3 +95,7 @@ The active tab is now remembered. Workspace saves retain the previous valid snap
 Confirmed tab closure now ends that tab’s sessions and running commands. Regular Quit keeps persistent sessions alive; Quit and End Grove Sessions stops saved sessions and reports failures. Worktree removal also refuses ignored files such as .env. App packaging and tagged release instructions are in [Releasing](RELEASING.md).
 
 Startup commands for a script tab run once when you choose the script. They are not persisted as automatic restore commands. A surviving persistent session keeps its original process; if that session is gone, restoration opens a shell instead of silently repeating a build/deployment command. Saved script definitions remain in the Scripts menu for explicit reruns.
+
+## Visual profile and triage
+
+Settings → General exposes **Visual profile**, **Sort worktrees by attention** and **Compact sidebar**. Manual visual profiles apply immediately. Auto waits for sustained power/thermal triggers before downgrading, and schedules recovery after they clear. Accessibility preferences suppress chrome materials/animations; terminal cursor-blink suppression remains deferred. Pinned worktrees stay first. Attention sorting uses states seen in two consecutive polls; it does not infer an agent awaiting input from silence. Efficient status polling can show a dirty marker without line counts. A “Restored N saved terminal panes” notice describes saved pane metadata, not proof that the old process survived.

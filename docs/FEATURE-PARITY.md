@@ -124,3 +124,7 @@ An original app icon, local Git history, state validation/backup recovery, ignor
 ### Named scripts and project defaults
 
 [Supacode script evidence](SUPACODE-SCRIPTS.md) distinguishes empty category defaults from the upstream repository's own commands. Grove implements its own [presets and config reader](../Sources/Grove/ScriptPreset.swift), [editor/actions](../Sources/Grove/Scripts.swift), and [project defaults](../grove.json). [ScriptCheck](../Checks/ScriptCheck.swift) exercises config validation/scoping, legacy migration, no startup replay, real shell quoting/cwd/environment and exit status. Lifecycle hooks remain missing; named-script UI and shortcuts require manual interaction validation.
+
+### UI/UX branch review
+
+The branch adds keyboard actions, visual profiles, stable attention sorting and unified/split tracked diffs. [Corrective review](UIUX-BRANCH-REVIEW.md) distinguishes verified model/backend checks from pending manual UI acceptance. Automatic input-wait detection, setup hooks, streamed/cancellable worktree creation, complete PR check-state badges and Efficient cursor suppression remain partial/deferred; the plan's “delivered” list does not establish them.

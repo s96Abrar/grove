@@ -25,6 +25,7 @@ import AppKit
     @Published var pendingRemove: Worktree?
     @Published var pendingRename: Worktree?
     func requestRemove(_ tree: Worktree) { snapshotFocus(); pendingRemove = tree }
+    func isRemoving(_ path: String) -> Bool { removingWorktrees.contains(path) }
     func requestRename(_ tree: Worktree) { snapshotFocus(); pendingRename = tree }
     func requestRenameSelected() { guard let tree = selected else { return }; snapshotFocus(); pendingRename = tree }
     var sessions: [UUID: Session] = [:]
@@ -38,16 +39,21 @@ import AppKit
     @AppStorage("triageSort") var triageSort = true
     @AppStorage("compactSidebar") var compactSidebar = false
     private var reattachedIDs = Set<UUID>()
+    private var restoredPaneIDs = Set<UUID>()
     private let launchedAt = Date()
     private var reattachDebounce: Task<Void, Never>?
     @Published private(set) var workspaceStorageBlocked = false
     private var refreshing = false
     private var closingPaneTabs = Set<UUID>()
-    private let verificationPath = ProcessInfo.processInfo.environment["GROVE_VERIFY_PATH"]
-    init() {
-        if let path = ProcessInfo.processInfo.environment["GROVE_VERIFY_PATH"] {
+    private var removingWorktrees = Set<String>()
+    private let verificationPath: String?
+    init(verificationPath: String? = ProcessInfo.processInfo.environment["GROVE_VERIFY_PATH"]) {
+        self.verificationPath = verificationPath
+        if let path = verificationPath {
             let stateURL = URL(fileURLWithPath: path + "/grove-test-state.json")
-            if let data = try? Data(contentsOf: stateURL), let state = try? JSONDecoder().decode(SavedWorkspace.self, from: data) { saved = state }
+            if let data = try? Data(contentsOf: stateURL), let state = try? JSONDecoder().decode(SavedWorkspace.self, from: data) {
+                saved = state; restoredPaneIDs = Set(state.tabs.values.flatMap { $0 }.flatMap { $0.panes }.map(\.id))
+            }
             else {
                 saved.roots = [path]
                 let marker = path + "/grove-terminal-marker"
@@ -59,6 +65,7 @@ import AppKit
         do {
             if let loaded = try WorkspacePersistence.load() {
                 saved = loaded.state
+                restoredPaneIDs = Set(saved.tabs.values.flatMap { $0 }.flatMap { $0.panes }.map(\.id))
                 if loaded.recoveredBackup { error = "Your previous workspace backup was restored. Unreadable metadata was preserved locally for recovery." }
             } else { saved.roots = UserDefaults.standard.stringArray(forKey: "repositories") ?? [] }
         } catch {
@@ -69,8 +76,8 @@ import AppKit
         // on user interaction, and the handler is an O(panes) pointer compare
         // that publishes only when the focused pane actually changes.
         let center = NotificationCenter.default
-        center.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: .main) { [weak self] _ in self?.refreshFocusedPane() }
-        center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] _ in self?.refreshFocusedPane() }
+        center.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor [weak self] in self?.refreshFocusedPane() } }
+        center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor [weak self] in self?.refreshFocusedPane() } }
     }
     var roots: [String] { saved.roots }
     var usePersistentTerminals: Bool { verificationPath != nil || persistent }
@@ -99,6 +106,7 @@ import AppKit
         if let first = trees[root]?.first { select(first) }
     }
     func select(_ tree: Worktree) {
+        guard !isRemoving(tree.path) else { return }
         selected = tree; saved.selected = tree.path; status = ""; diff = ""; pullRequest = ""
         if saved.tabs[tree.path]?.isEmpty != false { saved.tabs[tree.path] = [TabRecord()] }
         save(); Task { await refreshChanges() }
@@ -184,11 +192,11 @@ import AppKit
         let next = attention[(currentIndex.map { $0 + 1 } ?? 0) % attention.count]
         select(next)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.focusTerminalPane()
+            _ = self?.focusTerminalPane()
         }
     }
 
-    /// Transient "Reattached to N saved terminal sessions" notice on relaunch.
+    /// Transient saved-pane notice; daemon continuity is verified separately.
     private func noteReattachIfNeeded(_ session: Session) {
         guard session.state == "Shell", recordIsRestored(session.record),
               Date().timeIntervalSince(launchedAt) < 30,
@@ -198,17 +206,16 @@ import AppKit
         reattachDebounce = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.5))
             guard !Task.isCancelled, let self else { return }
-            self.transientNotice = "Reattached to \(self.reattachedIDs.count) saved terminal session\(self.reattachedIDs.count == 1 ? "" : "s")"
+            self.transientNotice = "Restored \(self.reattachedIDs.count) saved terminal pane\(self.reattachedIDs.count == 1 ? "" : "s")"
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
             self.transientNotice = nil
         }
     }
 
-    /// A pane is "restored" when it has no startup command (plain shell) —
-    /// fresh shells and reattached tmux sessions are indistinguishable in the
-    /// PTY itself, so the notice counts restored plain-shell panes.
-    private func recordIsRestored(_ record: PaneRecord) -> Bool { record.command == nil }
+    /// This notice reports restored metadata, not daemon continuity; a saved
+    /// pane can start a new shell if its daemon no longer exists.
+    private func recordIsRestored(_ record: PaneRecord) -> Bool { restoredPaneIDs.contains(record.id) }
 
     // MARK: Triage status
 
@@ -220,24 +227,22 @@ import AppKit
         return statuses.min { $0.sortRank < $1.sortRank } ?? .idle
     }
 
-    /// Hysteresis: a status only changes the triage sort once it has persisted
-    /// across two consecutive polls, so rows never reshuffle under the user.
+    /// Commit only status samples observed twice in succession.
     private var lastStatuses: [String: WorktreeStatus] = [:]
-    func stableStatus(for path: String) -> WorktreeStatus {
-        let current = status(for: path)
-        let previous = lastStatuses[path] ?? current
-        return previous == current ? current : previous
-    }
+    private var previousStatusSamples: [String: WorktreeStatus] = [:]
+    func stableStatus(for path: String) -> WorktreeStatus { lastStatuses[path] ?? .idle }
 
     func recordStatusSnapshot() {
-        var snapshot: [String: WorktreeStatus] = [:]
-        for path in saved.tabs.keys { snapshot[path] = status(for: path) }
-        lastStatuses = snapshot
+        let sample = Dictionary(uniqueKeysWithValues: saved.tabs.keys.map { ($0, status(for: $0)) })
+        lastStatuses = lastStatuses.filter { sample[$0.key] != nil }
+        for (path, state) in sample where previousStatusSamples[path] == state { lastStatuses[path] = state }
+        previousStatusSamples = sample
     }
 
     /// Tier-gated batch diff summary poll for visible worktrees.
     func pollDiffStats() async {
         guard !refreshing, !roots.isEmpty else { return }
+        refreshing = true; defer { refreshing = false }
         let efficient = PerformanceProfileManager.shared.effectiveTier == .efficient
         let paths = roots.flatMap { visibleTrees($0) }.map(\.path)
         let stats = await Task.detached { () -> [String: DiffSummary] in
@@ -246,14 +251,15 @@ import AppKit
             for path in paths {
                 if Task.isCancelled { break }
                 guard let status = try? Git.run(["status", "--porcelain", "-z"], at: path), !status.isEmpty else { continue }
-                var additions = 0, deletions = 0
-                if !efficient, let numstat = try? Git.run(["diff", "--numstat", "--no-color"], at: path) {
+                var additions = 0, deletions = 0, hasLineCounts = false
+                if !efficient, let numstat = try? Git.run(["diff", "--numstat", "--no-color", "HEAD", "--"], at: path) {
+                    hasLineCounts = true
                     for line in numstat.split(separator: "\n") {
                         let parts = line.split(separator: "\t")
                         if parts.count >= 2, let a = Int(parts[0]), let d = Int(parts[1]) { additions += a; deletions += d }
                     }
                 }
-                result[path] = DiffSummary(dirty: true, additions: additions, deletions: deletions)
+                result[path] = DiffSummary(dirty: true, additions: additions, deletions: deletions, hasLineCounts: hasLineCounts)
             }
             return result
         }.value
@@ -299,7 +305,7 @@ import AppKit
         return view
     }
     func addTab(command: String? = nil, name: String = "Terminal", scriptID: UUID? = nil) {
-        guard let path = selected?.path else { return }
+        guard let path = selected?.path, !removingWorktrees.contains(path) else { return }
         guard (saved.tabs[path]?.count ?? 0) < 64 else { error = "This workspace has reached its 64-tab limit."; return }
         var tab = TabRecord(name: name, panes: [PaneRecord(title: name, command: command)])
         tab.scriptID = scriptID
@@ -308,7 +314,7 @@ import AppKit
         saved.activeTabs = saved.activeTabs ?? [:]; saved.activeTabs?[path] = tab.id; save()
     }
     func split(tab: UUID, vertical: Bool) {
-        guard let path = selected?.path, let index = saved.tabs[path]?.firstIndex(where: { $0.id == tab }) else { return }
+        guard let path = selected?.path, !removingWorktrees.contains(path), let index = saved.tabs[path]?.firstIndex(where: { $0.id == tab }) else { return }
         let tab = saved.tabs[path]![index]
         guard tab.panes.count < 64 else { error = "This tab has reached its 64-pane limit."; return }
         guard let lastPane = tab.panes.last else { error = "This tab has no terminal panes."; return }
@@ -322,24 +328,27 @@ import AppKit
         catch { self.error = error.localizedDescription }
     }
     func closePane(_ paneID: UUID, in tabID: UUID, at path: String) async {
-        guard !closingPaneTabs.contains(tabID),
+        guard !isRemoving(path), !closingPaneTabs.contains(tabID),
               let tab = saved.tabs[path]?.first(where: { $0.id == tabID }),
               tab.removingPane(paneID) != nil else { return }
         closingPaneTabs.insert(tabID); defer { closingPaneTabs.remove(tabID) }
         do { try await endSession(paneID) }
         catch { self.error = "Could not close this split: \(error.localizedDescription)"; return }
         // Re-read after cleanup: another action may have changed this tab while awaiting.
-        guard let index = saved.tabs[path]?.firstIndex(where: { $0.id == tabID }),
+        guard !isRemoving(path), let index = saved.tabs[path]?.firstIndex(where: { $0.id == tabID }),
               let remaining = saved.tabs[path]![index].removingPane(paneID) else { return }
         saved.tabs[path]![index] = remaining
         sessions.removeValue(forKey: paneID)
         save()
     }
-    func closeTab(_ tab: TabRecord) async {
-        guard let path = selected?.path else { return }
+    func closeTab(_ tab: TabRecord, at origin: String? = nil) async {
+        guard let path = origin ?? selected?.path, !isRemoving(path), !closingPaneTabs.contains(tab.id),
+              saved.tabs[path]?.contains(where: { $0.id == tab.id }) == true else { return }
+        closingPaneTabs.insert(tab.id); defer { closingPaneTabs.remove(tab.id) }
         do {
             for pane in tab.panes { try await endSession(pane.id) }
         } catch { self.error = "Could not end this tab's sessions: \(error.localizedDescription)"; return }
+        guard !isRemoving(path) else { return }
         for pane in tab.panes { sessions.removeValue(forKey: pane.id) }
         saved.tabs[path]?.removeAll { $0.id == tab.id }
         if saved.tabs[path]?.isEmpty != false { saved.tabs[path] = [TabRecord()] }
@@ -351,6 +360,10 @@ import AppKit
     func visibleTrees(_ root: String) -> [Worktree] {
         (trees[root] ?? []).filter { showArchived || !saved.archived.contains($0.path) }.sorted {
             if saved.pinned.contains($0.path) != saved.pinned.contains($1.path) { return saved.pinned.contains($0.path) }
+            if triageSort {
+                let left = stableStatus(for: $0.path).sortRank, right = stableStatus(for: $1.path).sortRank
+                if left != right { return left < right }
+            }
             return $0.branch.localizedStandardCompare($1.branch) == .orderedAscending
         }
     }
@@ -371,7 +384,7 @@ import AppKit
             selected = refreshed
         }
     }
-    func refreshChanges() async {
+    func refreshChanges(background: Bool = false) async {
         guard let tree = selected, let root = root(for: tree), !isFolder(root) else { return }
         do {
             let result = try await Task.detached {
@@ -380,7 +393,10 @@ import AppKit
                 return (status, diff)
             }.value
             guard selected == tree else { return }; status = result.0; diff = result.1
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            if background { backgroundError = "Background changes refresh failed: " + error.localizedDescription }
+            else { self.error = error.localizedDescription }
+        }
     }
     func refreshPR() async {
         guard githubEnabled, let path = selected?.path else { return }
@@ -403,30 +419,26 @@ import AppKit
         } catch { self.error = error.localizedDescription }
     }
     func remove(_ tree: Worktree) async {
-        guard let root = root(for: tree) else { return }
-        // Council-reviewed ordering: end every pane session FIRST (kill-session
-        // must happen while the worktree directory still exists); teardown
-        // failure aborts while the tree is intact — no inconsistent state.
-        var teardownError: String?
-        for tab in saved.tabs[tree.path] ?? [] {
-            for pane in tab.panes {
-                do { try await endSession(pane.id) }
-                catch { teardownError = error.localizedDescription }
-                sessions.removeValue(forKey: pane.id)
-            }
+        guard let root = root(for: tree), !removingWorktrees.contains(tree.path) else { return }
+        guard !(saved.tabs[tree.path] ?? []).contains(where: { closingPaneTabs.contains($0.id) }) else {
+            error = "Wait for this worktree's terminal closure to finish before removing it."; return
         }
-        if let teardownError {
-            error = "Could not end some terminal sessions in this worktree: \(teardownError) Resolve them before removing the worktree."
-            await reload()
-            return
-        }
+        removingWorktrees.insert(tree.path); defer { removingWorktrees.remove(tree.path) }
         do {
-            _ = try await Task.detached { try Git.remove(tree, at: root) }.value
-        } catch { self.error = error.localizedDescription; return }
-        // Metadata cleanup is unconditional once the worktree is removed, so
-        // persisted state can never point at a deleted directory.
-        saved.tabs.removeValue(forKey: tree.path); saved.activeTabs?.removeValue(forKey: tree.path); saved.pinned.remove(tree.path); saved.archived.remove(tree.path); save()
-        await reload()
+            // Eligibility must be checked before stopping any running work.
+            try await Task.detached { try Git.validateRemoval(tree, at: root) }.value
+            let panes = saved.tabs[tree.path]?.flatMap(\.panes) ?? []
+            for pane in panes { try await endSession(pane.id) }
+            // Recheck after teardown in case files changed during the await.
+            try await Task.detached { try Git.remove(tree, at: root) }.value
+            for pane in panes { sessions.removeValue(forKey: pane.id) }
+            saved.tabs.removeValue(forKey: tree.path); saved.activeTabs?.removeValue(forKey: tree.path)
+            saved.pinned.remove(tree.path); saved.archived.remove(tree.path); save()
+            await reload()
+        } catch {
+            // Keep cached ended/error sessions: recreating them can replay a transient command.
+            self.error = error.localizedDescription
+        }
     }
     func rename(_ tree: Worktree, branch: String) async {
         do { try await Task.detached { try Git.rename(branch, at: tree.path) }.value; await reload(); if let changed = trees.values.flatMap({ $0 }).first(where: { $0.path == tree.path }) { select(changed) } }

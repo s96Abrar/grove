@@ -17,79 +17,87 @@ enum PerformanceTier {
     case highPerformance, efficient
 }
 
-/// Dual performance profile system. Manual overrides always win; Auto mode
-/// downgrades to the Efficient tier only after a trigger (Low Power Mode,
-/// sustained thermal pressure) has held for a dwell interval, and upgrades
-/// back only after triggers have cleared — so transient blips never thrash
-/// the visual tier. App-inactive never downgrades the tier; it gates
-/// animations only (see `animationsEnabled`).
+/// Manual overrides apply immediately. Auto waits for sustained power/thermal
+/// triggers and schedules both downgrade and recovery, without periodic idle work.
 @MainActor
 final class PerformanceProfileManager: ObservableObject {
     static let shared = PerformanceProfileManager()
     @Published var profile: PerformanceProfile {
-        didSet { UserDefaults.standard.set(profile.rawValue, forKey: "performanceProfile"); evaluate() }
+        didSet { defaults.set(profile.rawValue, forKey: "performanceProfile"); evaluate() }
     }
     @Published private(set) var effectiveTier: PerformanceTier = .highPerformance
     @Published private(set) var activeTriggers: [String] = []
-    private var downgradeSince: Date?
-    private var upgradeSince: Date?
+    private let defaults: UserDefaults
+    private let now: () -> Date
+    private let triggers: () -> [String]
+    private var transitionTarget: PerformanceTier?
+    private var transitionSince: Date?
     private var evalTask: Task<Void, Never>?
+    private(set) var nextEvaluationDate: Date?
     private static let downgradeDwell: TimeInterval = 15
     private static let upgradeDwell: TimeInterval = 10
 
-    private init() {
-        profile = PerformanceProfile(rawValue: UserDefaults.standard.string(forKey: "performanceProfile") ?? "") ?? .auto
-        let center = NotificationCenter.default
-        center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.evaluate() }
-        center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.evaluate() }
-        center.addObserver(forName: NSNotification.Name.NSProcessInfoPowerStateDidChange, object: nil, queue: .main) { [weak self] _ in self?.evaluate() }
-        center.addObserver(forName: .init("NSProcessInfoThermalStateDidChange"), object: nil, queue: .main) { [weak self] _ in self?.evaluate() }
+    // Injection keeps checks independent of the user's preferences and power mode.
+    init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
+         triggers: (() -> [String])? = nil, observeSystem: Bool = true) {
+        self.defaults = defaults
+        self.now = now
+        self.triggers = triggers ?? {
+            var result: [String] = []
+            let info = ProcessInfo.processInfo
+            if info.isLowPowerModeEnabled { result.append("Low Power Mode enabled") }
+            if info.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue { result.append("Thermal pressure") }
+            return result
+        }
+        profile = PerformanceProfile(rawValue: defaults.string(forKey: "performanceProfile") ?? "") ?? .auto
+        if observeSystem {
+            let center = NotificationCenter.default
+            let names: [Notification.Name] = [NSApplication.didBecomeActiveNotification,
+                NSApplication.didResignActiveNotification, NSNotification.Name.NSProcessInfoPowerStateDidChange,
+                ProcessInfo.thermalStateDidChangeNotification]
+            for name in names {
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    Task { @MainActor [weak self] in self?.evaluate() }
+                }
+            }
+        }
         evaluate()
     }
 
     var animationsEnabled: Bool { effectiveTier == .highPerformance && NSApp?.isActive != false }
-
-    /// Tier-gated status polling cadence in seconds.
     var statusPollInterval: TimeInterval { effectiveTier == .efficient ? 15 : 5 }
 
-    private var thermalTriggers: [String] {
-        var triggers: [String] = []
-        let info = ProcessInfo.processInfo
-        if info.isLowPowerModeEnabled { triggers.append("Low Power Mode enabled") }
-        if info.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue { triggers.append("Thermal pressure") }
-        return triggers
-    }
-
     func evaluate() {
-        let triggers = thermalTriggers
-        let now = Date()
-        if triggers.isEmpty {
-            downgradeSince = nil
-            if upgradeSince == nil { upgradeSince = now }
+        evalTask?.cancel(); evalTask = nil; nextEvaluationDate = nil
+        let currentTriggers = triggers()
+        if activeTriggers != currentTriggers { activeTriggers = currentTriggers }
+        let target: PerformanceTier = profile == .auto
+            ? (currentTriggers.isEmpty ? .highPerformance : .efficient)
+            : (profile == .efficient ? .efficient : .highPerformance)
+        let instant = now()
+        if profile != .auto || target == effectiveTier {
+            transitionTarget = nil; transitionSince = nil
+            if effectiveTier != target { effectiveTier = target }
         } else {
-            upgradeSince = nil
-            if downgradeSince == nil { downgradeSince = now }
+            if transitionTarget != target {
+                transitionTarget = target; transitionSince = instant
+            }
+            let dwell = target == .efficient ? Self.downgradeDwell : Self.upgradeDwell
+            let deadline = (transitionSince ?? instant).addingTimeInterval(dwell)
+            if instant >= deadline {
+                effectiveTier = target
+                transitionTarget = nil; transitionSince = nil
+            } else {
+                nextEvaluationDate = deadline
+                evalTask = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(deadline.timeIntervalSince(instant))) }
+                    catch { return }
+                    guard !Task.isCancelled else { return }
+                    self?.evaluate()
+                }
+            }
         }
-        var tier: PerformanceTier
-        if profile == .efficient { tier = .efficient }
-        else if profile == .highPerformance { tier = .highPerformance }
-        else if let since = downgradeSince, now.timeIntervalSince(since) >= Self.downgradeDwell { tier = .efficient }
-        else if let since = upgradeSince, now.timeIntervalSince(since) >= Self.upgradeDwell { tier = .highPerformance }
-        else { tier = effectiveTier }
-        if tier != effectiveTier { effectiveTier = tier }
-        activeTriggers = triggers
+        // App activation changes animation eligibility even without a tier flip.
         objectWillChange.send()
-        if profile == .auto && downgradeSince != nil && now.timeIntervalSince(downgradeSince!) < Self.downgradeDwell {
-            scheduleReevaluation()
-        }
-    }
-
-    private func scheduleReevaluation() {
-        evalTask?.cancel()
-        evalTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled else { return }
-            self?.evaluate()
-        }
     }
 }

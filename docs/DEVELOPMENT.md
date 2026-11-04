@@ -24,7 +24,7 @@ Current workspace state is JSON-encoded Codable data in the application’s User
 
 New Git checkouts live under a sibling `.grove-worktrees/<repository>/` directory. New persistent terminal shells run on the isolated `tmux -L grove` server in sessions named `grove-<pane UUID>`. Daemon retention is separate from saved app metadata: confirmed tab closure ends its owned tmux/legacy screen sessions before removing metadata. Use `tmux -L grove list-sessions` or legacy `screen -list` to inspect orphans; end only deliberately identified sessions. Grove’s explicit end-sessions-and-quit action targets saved IDs and surfaces cleanup failures.
 
-Git probes read local state; worktree creation changes refs/checkouts. Optional fetch-before-create runs git fetch --prune against configured remotes. Branch rename changes a ref. Confirmed clean worktree removal deletes its checkout, preserves the branch and clears its saved workspace metadata; main/dirty checks precede removal. Clone contacts the provided Git remote. Optional manual GitHub lookup invokes local authenticated `gh`. User commands/scripts and shell startup files run with the user’s permissions and may access files or network. See [privacy](PRIVACY.md).
+Git probes read local state; worktree creation changes refs/checkouts. Optional fetch-before-create runs git fetch --prune against configured remotes. Branch rename changes a ref. Confirmed clean worktree removal deletes its checkout, preserves the branch and clears its saved workspace metadata; main/locked/dirty eligibility checks precede session teardown and removal. Clone contacts the provided Git remote. Optional manual GitHub lookup invokes local authenticated `gh`. User commands/scripts and shell startup files run with the user’s permissions and may access files or network. See [privacy](PRIVACY.md).
 
 Do not delete a managed checkout using a generic file-manager operation when Git should remove its metadata. Do not reset repositories, purge caches or terminate unrelated screen sessions as generic repair steps.
 
@@ -59,3 +59,7 @@ When adding a feature, update its coverage row, user-facing instructions, storag
 ## Version 0.3 release tooling
 
 Use make check for the complete local check path and make package for a local-only archive. Version metadata is in release.json. Universal builds use GROVE_ARCHS="arm64 x86_64". The source icon renderer is scripts/render-icon.swift; Resources/AppIcon.png is the committed raster master. No image-generation service is used. A fresh staging bundle is signed and verified before replacing the generated app, avoiding in-place changes to old bundle files. Complete credentials, pipeline and no-remote status are documented in [Releasing](RELEASING.md).
+
+## Reviewing UI/UX changes
+
+The UI/UX plan and its review notes contain historical proposals; [UIUX-BRANCH-REVIEW.md](UIUX-BRANCH-REVIEW.md) records corrections and observed test results. Keep eligibility checks before session teardown, retain ended/error session objects on removal failure, and preserve hook-created branch commits during failed-creation cleanup. `Package.swift` now includes a native macOS XCTest target for actual model/lifecycle regressions; test artifacts stay under ignored `.build/`. The separate profile check uses its own preference suite and never changes system power settings.

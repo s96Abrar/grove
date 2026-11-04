@@ -22,7 +22,7 @@ struct AppTheme {
             accent: Color(red: 0.68, green: 0.88, blue: 0.51),
             terminalBackground: dark ? NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.06, alpha: 1) : .textBackgroundColor,
             material: allowMaterial ? .ultraThinMaterial : nil,
-            animationsEnabled: animationsEnabled && !reduceMotion)
+            animationsEnabled: animationsEnabled && !reduceMotion && !reduceTransparency)
     }
 
     static let `default` = AppTheme(

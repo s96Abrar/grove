@@ -77,4 +77,5 @@ struct DiffSummary: Equatable {
     var dirty: Bool
     var additions: Int
     var deletions: Int
+    var hasLineCounts = true
 }

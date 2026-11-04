@@ -25,6 +25,7 @@ struct DiffFile: Identifiable {
     let deletedFile: Bool
     let renamed: Bool
     let hunks: [DiffHunk]
+    var metadata: [String] = []
 
     var additions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .addition }.count } }
     var deletions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .deletion }.count } }
@@ -37,6 +38,64 @@ struct SplitRow: Identifiable {
 }
 
 enum GitDiffParser {
+    /// Git quotes control/non-ASCII UTF-8 bytes using C escapes.
+    static func decodedPath(_ raw: String, stripPrefix: Bool = false) -> String {
+        var path = raw
+        if stripPrefix, let delimiter = path.firstIndex(of: "\t") { path = String(path[..<delimiter]) }
+        if path.first == "\"", path.last == "\"" {
+            let bytes = Array(path.dropFirst().dropLast().utf8)
+            var output: [UInt8] = [], index = 0
+            let escapes: [UInt8: UInt8] = [97: 7, 98: 8, 116: 9, 110: 10, 118: 11, 102: 12, 114: 13, 92: 92, 34: 34]
+            while index < bytes.count {
+                let byte = bytes[index]; index += 1
+                guard byte == 92, index < bytes.count else { output.append(byte); continue }
+                let next = bytes[index]
+                if (48...55).contains(next) {
+                    var value = 0, count = 0
+                    while index < bytes.count, count < 3, (48...55).contains(bytes[index]) {
+                        value = value * 8 + Int(bytes[index] - 48); index += 1; count += 1
+                    }
+                    output.append(UInt8(truncatingIfNeeded: value))
+                } else { output.append(escapes[next] ?? next); index += 1 }
+            }
+            path = String(decoding: output, as: UTF8.self)
+        }
+        if stripPrefix && (path.hasPrefix("a/") || path.hasPrefix("b/")) { return String(path.dropFirst(2)) }
+        return path
+    }
+
+    private static func headerPaths(_ header: String) -> (String, String) {
+        let text = String(header.dropFirst("diff --git ".count))
+        if text.first == "\"" {
+            var escaped = false
+            for index in text.indices.dropFirst() {
+                let character = text[index]
+                if character == "\"" && !escaped {
+                    let after = text.index(after: index)
+                    return (decodedPath(String(text[..<after]), stripPrefix: true),
+                            decodedPath(text[after...].trimmingCharacters(in: .whitespaces), stripPrefix: true))
+                }
+                if character == "\\" { escaped.toggle() } else { escaped = false }
+            }
+        }
+        // Spaces alone are not quoted by Git. Same-path headers can be resolved
+        // by matching both halves; rename headers subsequently supply exact names.
+        var search = text.startIndex
+        var fallback: (String, String)?
+        while search < text.endIndex, let boundary = text.range(of: " b/", range: search..<text.endIndex) {
+            let pair = (decodedPath(String(text[..<boundary.lowerBound]), stripPrefix: true),
+                        decodedPath(String(text[text.index(after: boundary.lowerBound)...]), stripPrefix: true))
+            if pair.0 == pair.1 { return pair }
+            if fallback == nil { fallback = pair }
+            search = boundary.upperBound
+        }
+        if let boundary = text.range(of: " \"b/") {
+            return (decodedPath(String(text[..<boundary.lowerBound]), stripPrefix: true),
+                    decodedPath(String(text[text.index(after: boundary.lowerBound)...]), stripPrefix: true))
+        }
+        return fallback ?? ("", "")
+    }
+
     static func parse(_ raw: String) -> [DiffFile] {
         guard raw.hasPrefix("diff --git") else { return [] }
         let lines = raw.components(separatedBy: "\n")
@@ -44,9 +103,10 @@ enum GitDiffParser {
         var index = 0
         while index < lines.count {
             guard lines[index].hasPrefix("diff --git ") else { index += 1; continue }
-            var (oldPath, path) = ("", "")
+            var (oldPath, path) = headerPaths(lines[index])
             var (binary, newFile, deletedFile, renamed) = (false, false, false, false)
             var hunks: [DiffHunk] = []
+            var metadata: [String] = []
             var hunkHeader = ""
             var hunkLines: [DiffLine] = []
             var oldCounter = 0, newCounter = 0, lineID = 0
@@ -64,7 +124,7 @@ enum GitDiffParser {
                     // Content line inside a hunk (checked first: '+', '-' can
                     // legitimately begin content, e.g. "+   +++ b/foo").
                     var oldNo: Int?; var newNo: Int?
-                    let body = String(l.dropFirst())
+                    let body = l.hasPrefix("\\") ? l : String(l.dropFirst())
                     switch l.first {
                     case " ": oldNo = oldCounter; newNo = newCounter; oldCounter += 1; newCounter += 1
                     case "+": newNo = newCounter; newCounter += 1
@@ -84,17 +144,18 @@ enum GitDiffParser {
                         oldCounter = oldSpec.first.flatMap { Int($0) } ?? 0
                         newCounter = newSpec.first.flatMap { Int($0) } ?? 0
                     }
-                } else if l.hasPrefix("new file mode") { newFile = true }
+                } else if l.hasPrefix("old mode ") || l.hasPrefix("new mode ") { metadata.append(l) }
+                else if l.hasPrefix("new file mode") { newFile = true }
                 else if l.hasPrefix("deleted file mode") { deletedFile = true }
-                else if l.hasPrefix("rename from ") { renamed = true; oldPath = String(l.dropFirst(12)) }
-                else if l.hasPrefix("rename to ") { renamed = true; path = String(l.dropFirst(10)) }
-                else if l.hasPrefix("Binary files") { binary = true }
+                else if l.hasPrefix("rename from ") { renamed = true; oldPath = decodedPath(String(l.dropFirst(12))) }
+                else if l.hasPrefix("rename to ") { renamed = true; path = decodedPath(String(l.dropFirst(10))) }
+                else if l.hasPrefix("Binary files") || l == "Git binary patch" { binary = true }
                 else if l.hasPrefix("--- ") {
                     let p = String(l.dropFirst(4))
-                    if p != "/dev/null" { oldPath = String(p.dropFirst(2)) }
+                    if p != "/dev/null" { oldPath = decodedPath(p, stripPrefix: true) }
                 } else if l.hasPrefix("+++ ") {
                     let p = String(l.dropFirst(4))
-                    if p != "/dev/null" { path = String(p.dropFirst(2)) }
+                    if p != "/dev/null" { path = decodedPath(p, stripPrefix: true) }
                 }
                 index += 1
             }
@@ -102,7 +163,7 @@ enum GitDiffParser {
             if path.isEmpty { path = oldPath.isEmpty ? "file-\(files.count)" : oldPath }
             files.append(DiffFile(id: path, path: path, oldPath: oldPath.isEmpty ? nil : oldPath,
                                   binary: binary, newFile: newFile, deletedFile: deletedFile,
-                                  renamed: renamed, hunks: hunks))
+                                  renamed: renamed, hunks: hunks, metadata: metadata))
         }
         return files
     }
@@ -210,6 +271,9 @@ struct DiffFileView: View {
             if !collapsed {
                 if file.binary {
                     Text("Binary file not shown.").font(.caption).foregroundStyle(.secondary).padding(10)
+                } else if file.hunks.isEmpty {
+                    Text(file.metadata.isEmpty ? "No text changes." : file.metadata.joined(separator: "\n"))
+                        .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).padding(10)
                 } else {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(file.hunks) { hunk in
@@ -265,7 +329,7 @@ struct UnifiedLineRow: View {
         switch line.kind {
         case .addition: return "+ "
         case .deletion: return "− "
-        case .hunkHeader, .meta: return line.text
+        case .hunkHeader, .meta: return ""
         case .context: return "  "
         }
     }
@@ -317,9 +381,9 @@ struct SplitHunkView: View {
                     DiffRowBar(text: row.left?.text ?? "", color: .clear)
                 } else {
                     HStack(alignment: .top, spacing: 0) {
-                        SplitCell(line: row.left)
+                        SplitCell(line: row.left, oldSide: true)
                         Rectangle().fill(Color.primary.opacity(0.10)).frame(width: 1)
-                        SplitCell(line: row.right)
+                        SplitCell(line: row.right, oldSide: false)
                     }
                 }
             }
@@ -329,9 +393,11 @@ struct SplitHunkView: View {
 
 struct SplitCell: View {
     let line: DiffLine?
+    var oldSide = true
+    var lineNumber: Int? { oldSide ? line?.oldNumber : line?.newNumber }
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            Text(line.flatMap { $0.oldNumber ?? $0.newNumber }.map(String.init) ?? "")
+            Text(lineNumber.map(String.init) ?? "")
                 .frame(width: 40, alignment: .trailing).padding(.horizontal, 4)
             Text(prefix + (line?.text ?? ""))
                 .font(.system(size: 11, design: .monospaced))

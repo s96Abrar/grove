@@ -6,11 +6,13 @@
 
 ---
 
+**Corrective review (2026-11-04):** [Branch review and verification](UIUX-BRANCH-REVIEW.md) supersedes unsafe removal/rollback ordering and overstatements identified below. Deferred items remain proposals; passing compilation alone is not UI acceptance.
+
 ## 1. Phase 1 — P0 correctness (ship first, no behavior regressions allowed)
 
 ### 1.1 Kill tmux sessions on worktree removal
 - **Files:** `Sources/Grove/Workspace.swift` (`remove`, ~:188-196), `Sources/Grove/Session.swift`.
-- **Change:** replace `sessions[pane.id]?.detach()` with the same teardown `closeTab` uses: terminate the PTY and `tmux kill-session` (via existing `endSession` path, `Workspace.swift:240-247`), for every pane of every tab whose root matches the removed worktree. Keep the rest of removal flow (git worktree remove, hard dirty-block) untouched.
+- **Change:** preflight main-checkout and dirty/ignored-file protections before any teardown, then replace `sessions[pane.id]?.detach()` with the same teardown `closeTab` uses: terminate the PTY and `tmux kill-session` (via existing `endSession` path, `Workspace.swift:240-247`), for every pane of every tab whose root matches the removed worktree. After teardown, recheck Git eligibility before removal. Preserve cached ended/error sessions on any failure so a redraw cannot replay startup commands. Block concurrent pane creation/closure for the removal target.
 - **Acceptance:** after `Workspace.remove`, `tmux -L grove list-sessions` contains no session for the removed panes; existing removal behavior (dirty block, branch kept) unchanged.
 - **New test:** extend `Checks/` with a removal-session-cleanup check (spawns a pane, removes worktree, asserts no matching tmux session).
 
@@ -43,7 +45,7 @@
 
 ### 2.3 Command Palette upgrade
 - **Files:** `Sources/Grove/Settings.swift` (palette), `Sources/Grove/Grove.swift:16`.
-- **Change:** (a) ⌘K as an additional menu shortcut; (b) focus the query field on appear; (c) arrow-key/`onMoveCommand` selection with highlighted row; Return executes selection (not just first); (d) right-aligned shortcut hints per row (route `Action.key`, `Settings.swift:46`); (e) busy-gate "Create worktree" on `model.busy` (parity with sheet, `Grove.swift:181`); (f) seed palette rows from the same action list that backs the new menu items (single source of truth).
+- **Change:** (a) ⌘K as an additional menu shortcut; (b) focus the query field on appear; (c) arrow-key/`onMoveCommand` selection with highlighted row; Return executes selection (not just first); (d) right-aligned shortcut hints per row (use a separate optional shortcut field, preserving stable action identity); (e) busy-gate "Create worktree" on `model.busy` (parity with sheet, `Grove.swift:181`); (f) seed palette rows from the same action list that backs the new menu items (single source of truth).
 - **Acceptance:** ⌘K or ⇧⌘P opens palette; typing lands in query; ↑/↓ + Return executes any action; rows show shortcut glyphs when they exist.
 
 ### 2.4 Missing core shortcuts (menu-backed, discoverable)
@@ -79,7 +81,7 @@
 
 ### 3.3 Settings + status pill
 - **Files:** `Sources/Grove/Settings.swift` (new picker), `Sources/Grove/Grove.swift` (sidebar header pill + popover).
-- **Change:** "Visual profile: Auto (System-Aware) | High Performance | Efficient" picker with explanatory caption; toolbar/sidebar status pill showing `⚡ High Perf` / `🍃 Efficient • <primary trigger>`; pill opens a popover with mode selector, active triggers, and lightweight metrics (active agent count from §4 rollup, suspended surfaces count, target FPS cap).
+- **Change:** "Visual profile: Auto (System-Aware) | High Performance | Efficient" picker with explanatory caption; toolbar/sidebar status pill showing `⚡ High Perf` / `🍃 Efficient • <primary trigger>`; pill opens a popover with mode selector, active triggers, and lightweight metrics (saved terminal pane count and effective visual tier).
 - **Acceptance:** pill reflects live tier; popover selector updates tier instantly; metrics match actual pane counts.
 
 ### 3.4 Terminal polish gates
@@ -133,7 +135,7 @@
 
 ### 5.4 Reattach toast + wake refresh
 - **Files:** `Sources/Grove/Grove.swift` (TransientBanner), `Session.swift`, `Workspace.swift`.
-- **Change:** when a *restored* (not freshly created) pane transitions Starting → Shell after relaunch, show a transient "Reattached to N active agent sessions" banner (auto-dismiss ~4 s, non-focus-taking). Observe `NSWorkspace.didWakeNotification` → `model.reload()` for fresh state after sleep.
+- **Change:** when a pane whose ID was loaded from saved metadata is ready/focused after relaunch, show a transient "Restored N saved terminal panes" banner (auto-dismiss ~4 s, non-focus-taking). Observe `NSWorkspace.didWakeNotification` → `model.reload()` for fresh state after sleep.
 - **Acceptance:** relaunch with persistent terminals shows the toast with correct count; post-wake git state refreshes within ~1 s.
 
 ### 5.5 New Checks
@@ -165,7 +167,7 @@
 
 **Verdicts: APPROVE-WITH-CHANGES from all 4 reviewers** (AppKit/focus, performance/systems, product/UX, adversarial safety). Full verdicts and change requests: `docs/UIUX-PLAN-REVIEWS.md`. Deltas applied to this plan before implementation:
 
-- **§1.1 revised:** sessions ended FIRST (closeTab teardown shape), then `Git.remove`, then unconditional metadata cleanup; partial-failure surfaces as error (ARCHITECTURE.md:89). Removal-cleanup Check is GUI-gated, not headless.
+- **§1.1 revised:** non-destructive shared Git preflight FIRST, then session teardown, Git final recheck/removal, and metadata/cache cleanup on success only. Partial failure retains cached sessions and metadata; pane-producing actions are guarded during removal. Removal-cleanup Check is GUI-gated, not headless.
 - **§1.2 revised:** cache last-applied terminal background color; assign only on change (updateNSView fires on every state publish; nativeBackgroundColor setter does not clear scrollback).
 - **§2.1 revised:** focus snapshot taken *before presenting* sheets/alerts (no first-responder event hook exists in SwiftUI); optional `LocalProcessTerminalView` subclass publishes focus gain/loss for §2.5's border; `lastFocusedPaneID` transient, not persisted.
 - **§2.3 revised:** palette arrow-key nav via scoped `NSEvent.addLocalMonitorForEvents(.keyDown)` (onMoveCommand won't fire while the query field is first responder); Escape hierarchy: exit substate → clear query → close.
@@ -178,36 +180,38 @@
 - **§4.1 revised:** exhaustive state mapping incl. `"Ended"` (neutral) and `"Exited signal"` (failed); status derived at runtime, never persisted (no schema migration).
 - **§4.2 revised:** diff stats in `@Published var diffStats: [String: DiffSummary]` keyed by path (Worktree is a regenerated value type); shared `refreshing` guard; tier-gated cadence (HP 5 s + numstat only for non-clean trees; Efficient 10–15 s status-only; skip while app inactive; sequential); diff badge rendered only when dirty > 0, muted single accent, dirty dot in compact mode.
 - **§4.3 revised:** hysteresis on triage sort (status must persist two consecutive polls); precedence `failed > awaitingInput > completed > running > idle`; auto-compact above ~12 visible rows; PR badge only when non-green.
-- **§5.1 revised:** streaming tab created under repo-root key and moved on success; on failure/cancel — remove tab, `git worktree prune`, delete leftover dir, reload.
+- **§5.1 revised:** streaming tab created under repo-root key and moved on success; on failure/cancel — remove tab, safely unregister/delete only the failed checkout through Git, preserve locked/refused checkouts with recovery guidance, retain any branch (a hook may have committed), and report recovery details.
 - **§5.3 revised:** sheet-hosted risk dialog (`.alert` discards SwiftUI keyboard shortcuts); progressive copy — riskless case is one line; unpushed-commit probe via `rev-parse --abbrev-ref --symbolic-full-name @{u}`; ⌘Return confirm works in sheet-hosted dialogs.
 - **§5.4/§2.2 revised:** single shared banner strip (toast reuses it, replaces not stacks, gated by ProfiledAnimation); wake refresh via `.onReceive` on ContentView.
 
 **Implementation proceeds under these deltas.**
 
-## 9. Implementation status (delivered)
+## 9. Initial implementation report (historical)
+
+This section records the initial branch implementation report. Current verified behavior, corrected claims and acceptance limits are recorded in [the corrective branch review](UIUX-BRANCH-REVIEW.md). The original checks did not cover the lifecycle and parser regressions found by that review.
 
 **Build:** `swift build` → `Build complete!` (Swift 6.2 toolchain, swiftLanguageModes v5, macOS 14 target). **Checks:** GitCheck, StateCheck, ScriptCheck, OpenTargetCheck, release-policy, screen PTY, tmux PTY — all PASS (one transient `Errno 35` fork failure on tmux_check was green on re-run).
 
 ### Delivered
-- **§1.1** `Workspace.remove`: sessions ended first via `endSession` (kill-session), teardown failure aborts while tree intact; unconditional metadata cleanup after removal (`Workspace.swift`).
+- **§1.1** `Workspace.remove`: Git eligibility checked before `endSession`, final Git validation retained, metadata/cache removed only after success. Failures keep stable ended/error sessions and same-path mutations are blocked (`Workspace.swift`).
 - **§1.2/§1.3** Theme-aware terminal background (dark/light via `appearance` + `colorScheme`), applied only when changed (cached `appliedBackground`); tab pill `Color.white.opacity(0.08)` → `Color.primary.opacity(0.08)`; all chrome colors routed through `AppTheme`.
 - **§1.4** Launch failures/non-zero exits render red via `WorktreeStatus` (`TerminalPane`).
 - **§2.1–2.2** `snapshotFocus()` before every sheet/dialog; `restoreFocus()` on dismissal (`onDismiss` + error-alert `onChange`) with fallback to the active tab's first pane; background git failures → non-modal `NoticeBanner` (`backgroundError`), user-action failures keep the modal alert.
 - **§2.3** Palette: ⌘K primary + ⇧⌘P alias, query field focused on appear, arrow-key navigation via scoped `NSEvent` local monitor, Return executes the selected row, right-aligned shortcut hints, busy-gated create.
 - **§2.4–2.7** Menu-backed ⌘W (pane→tab escalation with confirmation), ⌘D/⇧⌘D splits, ⇧⌘]/⇧⌘[ tab cycling, ⌃⌘C copy path, ⇧⌘B copy branch, ⌘N promoted to menu (hidden duplicate binding removed), ⌘⌫/⇧⌘⌫ remove/archive, ⌘⇧A jump-to-attention, ⌘F focus-fallback; worktree actions discoverable in the Workspace menu and palette.
 - **§2.5** Active-pane indicator: 1-pt accent border driven by event-tracked `focusedPaneID` (`NSWindow.didUpdate`/`didBecomeKey` observers, publish-on-change only — SwiftTerm's first-responder overrides are not `open`, so no subclass hook; corrected from the plan's original approach per build findings).
-- **§3.1–3.3** `PerformanceProfileManager` (`PerformanceProfile.swift`): Auto/HighPerformance/Efficient, dwell hysteresis (15 s downgrade at `.serious`+ thermal or Low Power Mode, 10 s upgrade), app-level active/resign gates animations only, SF Symbol pill (`bolt.fill`/`leaf.fill`) with popover (mode selector, triggers, on-open metrics); Settings picker; tier-gated poll cadence (5 s/15 s).
+- **§3.1–3.3** `PerformanceProfileManager` (`PerformanceProfile.swift`): Auto/HighPerformance/Efficient, dwell hysteresis (15 s downgrade at `.serious`+ thermal or Low Power Mode, scheduled 10 s recovery; either pending transition is cancelled by a manual override), app-level active/resign gates animations only, SF Symbol pill (`bolt.fill`/`leaf.fill`) with popover (mode selector, triggers, on-open metrics); Settings picker; tier-gated poll cadence (5 s/15 s).
 - **§3.2** `AppTheme` (`AppTheme.swift`): materials only in HighPerformance; `accessibilityReduceMotion`/`accessibilityReduceTransparency` force the Efficient treatment; tier crossfade 0.15 s.
 - **§4.1–4.4** `WorktreeStatus` exhaustive state mapping (incl. `"Ended"` neutral, `"Exited signal"` → failed); per-worktree rollup + two-poll hysteresis sort (`failed > awaitingInput > completed > running > idle`) behind `triageSort`; two-line triage rows (status symbol, monospace branch, diff badge only when dirty, dirty dot in compact mode); `diffStats: [String: DiffSummary]` keyed by path, sequential tier-gated poll; PR badge rendered only for OPEN + non-mergeable PRs (green-quiet, red-loud); compact sidebar toggle.
-- **§5.1 (partial)** Create sheet shows progress while `busy`; palette create busy-gated; `Git.create` failure rollback (`worktree prune` + leftover dir removal).
+- **§5.1 (partial)** Create sheet shows progress while `busy`; palette create busy-gated; `Git.create` failure rollback (exact registered-checkout removal, preserving locks, unrelated registrations and branch commits).
 - **§5.3** Sheet-hosted `RemoveWorktreeDialog` with risk lines (unpushed commits via upstream probe; running-program panes) and ⌘Return confirm / Esc cancel; hard dirty-block copy retained.
-- **§5.4** "Reattached to N saved terminal sessions" transient banner (debounced, auto-dismiss, shares the banner strip) + wake refresh via `NSWorkspace.didWakeNotification`.
+- **§5.4** "Restored N saved terminal panes" transient banner based on IDs loaded from metadata (debounced, auto-dismiss, shares the banner strip) + wake refresh via `NSWorkspace.didWakeNotification`.
 
 ### Deferred (follow-ups, documented in plan)
 - **§3.4** DECSCUSR cursor-blink suppression in Efficient tier (requires `cursorStyleChanged` override; SwiftTerm's blink is app-driven, not a Grove setting).
 - **§5.1 (remainder)** Streaming git output into an immediate tab (needs destination-path move semantics; rollback story already implemented).
 - **§5.2** Post-create setup hooks.
-- **§5.5** New Checks: removal-session-cleanup (GUI-gated) and repeatForever/TimelineView grep-gate.
+- **§5.5 (partial)** Runtime visual/performance sampling and animation grep gate remain follow-ups. Native SwiftPM regression tests now cover actual Workspace removal/cache behavior, owned tmux cleanup, rollback, triage and real Git diff output; no GUI interaction coverage is implied.
 - **§4.5** `awaitingInput` detection behind the agent-presence protocol decision (slots exist in enum/sort/UI).
 
 

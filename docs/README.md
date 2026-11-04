@@ -23,3 +23,5 @@ Raw REA and runtime evidence under docs/evidence is generated locally and exclud
 - [Supacode scripts: source evidence and default behavior](SUPACODE-SCRIPTS.md)
 
 - [Terminal compatibility, tmux dependency and legacy migration](TERMINAL-COMPATIBILITY.md)
+
+- [UI/UX branch review, corrected claims and regression evidence](UIUX-BRANCH-REVIEW.md)

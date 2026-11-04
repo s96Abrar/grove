@@ -36,7 +36,7 @@
 ### Safety & regression (adversarial)
 15. **§1.1:** teardown ordering + failure atomicity. `endSession` throws — a failure after `Git.remove` succeeds would skip metadata cleanup → persisted tabs pointing at deleted dirs. Fix: end sessions for all panes under `tree.path` **first** (closeTab shape), then `Git.remove`, then unconditional metadata cleanup; surface partial failure per `ARCHITECTURE.md:89`. Document that `resetWorkspaceMetadata`'s detach-only is intentional (dirs still exist).
 16. **§4.1:** exhaustive state inventory required: `"Starting"`, `"Shell"`, bare `"Exited"`, `"Ended"`, `"Exited N"`, `"Exited signal"` (nil exit code), `"Launch failed: …"`, `"Program active"`. `"Ended"` must be its own neutral case; `"Exited signal"` → failed. Status is **derived, never persisted** (no `workspace.v2` schema migration).
-17. **§5.1:** destination path is computed inside `Git.create` — streaming tab must be created under the repo root key and moved on success; on failure/cancel: remove tab, `git worktree prune` + delete leftover dir, reload.
+17. **§5.1:** destination path is computed inside `Git.create` — streaming tab must be created under the repo root key and moved on success; on failure/cancel: clean the exact owned checkout/registration through Git, preserving locks and unrelated registrations, keep any hook-created branch commits and report recovery details (corrected by the 2026-11-04 review).
 18. **§3.1:** require dwell-based hysteresis (downgrade after trigger holds N s; upgrade after all triggers clear for M s).
 19. **§5.3:** `git log @{u}..` fails without upstream/detached HEAD — probe with `rev-parse --abbrev-ref --symbolic-full-name @{u}` first (or `allowFailure` on `Git.run`); argv-only, no shell string composition.
 
@@ -52,3 +52,7 @@
 - New removal-cleanup Check needs GUI gating (`GROVE_RUN_GUI_CHECKS` pattern) — not a headless unit check.
 - §4.5: render `awaitingInput` as "unknown/—" in UI until the protocol lands.
 
+
+## Corrective branch review — 2026-11-04
+
+The earlier teardown-first and prune-before-directory-cleanup recommendations were unsafe/incomplete. They are superseded by [UIUX-BRANCH-REVIEW.md](UIUX-BRANCH-REVIEW.md): eligibility before teardown, final Git recheck, cached sessions retained on failure, and cleanup of the exact owned failed checkout through Git, respecting locks and unrelated registrations. Branches are retained intentionally because a checkout hook may create commits. Approval of a plan did not prove implementation correctness. The new regression checks exercise these paths against real temporary repositories and owned sessions.

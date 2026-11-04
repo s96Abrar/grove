@@ -2,6 +2,12 @@
 
 Local host: Apple Silicon, macOS 27, Swift 6.4 / Xcode 27.1. This records bounded observations, not a claim that every supported system or Supacode feature has been verified.
 
+## UI/UX branch corrective review — 2026-11-04
+
+Reviewed both commits on `uiux-refactor` against `main`, including the project documentation. The initial actual-module regression run reproduced 10 assertion failures across five of six cases. After the corrections, the expanded suite passed all 11 cases. These cover real Git cleanup/removal, locked checkouts and hook-created commits, session identity and removal races, diff paths/metadata/numbering, triage and accessibility policy. A separate check passed actual profile transition callbacks and SDK thermal notification delivery. See [the claims, corrections and evidence](UIUX-BRANCH-REVIEW.md).
+
+The final `GROVE_RUN_GUI_CHECKS=1 bash scripts/check.sh` passed all checks, rebuilt the host arm64 app, verified bundle integrity and hardened ad-hoc signing, and exercised installer replacement/rollback and actual packaged-app relaunch. The app retained shell PID 10384, stable layout IDs and one tmux session, without startup replay or GNU screen context. Workflow lint and whitespace checks passed. This run does not establish a fresh universal release, hosted CI execution, or manual palette/IME, visual rendering and profile-transition UI acceptance. Those boundaries remain in [Testing](TESTING.md). The accepted non-notarized distribution policy is unchanged.
+
 ## Executed local checks
 
 - Original vector app icon rendered to a committed 1024px PNG and visually inspected. Packaging generates all standard icon sizes and embeds AppIcon.icns with the correct Info.plist reference.

@@ -1,5 +1,7 @@
 # Grove — UI/UX Friction & Ergonomics Audit
 
+**Historical snapshot:** this audit describes the source before the branch refactor. Its proposals are not current readiness blockers. The original claim that split focus necessarily follows insertion was unsupported; reading `firstResponder` only identifies the split target. The Open control already existed in the terminal toolbar. `Action.key` originally identified rows; shortcut labels require a separate field. See the [corrective branch review](UIUX-BRANCH-REVIEW.md) for verified findings, fixes and remaining limits.
+
 **Scope:** Full audit of `Sources/Grove/` (12 files, ~1,480 LOC) by four parallel specialists: (1) keyboard/focus, (2) information hierarchy/triage, (3) profile-aware visual design, (4) lifecycle/error recovery. Every claim cites `file:line` in the current tree. Classifications: **ANTI-PATTERN** / **GAP** / **OK**. Ad-hoc signing per `AGENTS.md` is accepted policy and is not reported as a defect.
 
 ---
@@ -45,7 +47,7 @@ No `makeFirstResponder`, `makeKeyAndOrderFront`, `@FocusState`, `.focusable`, or
 
 | ID | Class | Finding |
 |---|---|---|
-| F1 | OK | Split insertion reads real first-responder state (`Workspace.swift:98`) — focus follows correctly into the new split |
+| F1 | OK | Split insertion reads real first-responder state (`Workspace.swift:98`) — this identifies the insertion target; focus transfer requires separate verification |
 | F3 | **ANTI-PATTERN** | Background 5 s git poll failures route to `model.error` → modal `.alert` (`Grove.swift:184`, `Workspace.swift:146`) — a transient poll failure can capture keystrokes while the user types in a terminal |
 | F4 | **ANTI-PATTERN** | Closing the create-worktree sheet / error alerts hands focus back to the window generically — no mechanism restores it to the previously active terminal pane |
 | F5 | **GAP** | Palette (`Settings.swift`) does not explicitly focus its query field on presentation; first keystroke can be lost |
@@ -54,13 +56,13 @@ No `makeFirstResponder`, `makeKeyAndOrderFront`, `@FocusState`, `.focusable`, or
 
 ### (c) Command Palette status
 
-Exists (`Settings.swift`) but: no ⌘K alias, no arrow-key navigation, only "Run first result" (Return), no shortcut hints on rows, "Create worktree" not busy-gated (`Settings.swift:83`). Many actions remain mouse-only: archive/pin/rename/remove worktree, open in IDE (context menu only), copy path/branch, splits, tab close.
+Exists (`Settings.swift`) but: no ⌘K alias, no arrow-key navigation, only "Run first result" (Return), no shortcut hints on rows, "Create worktree" not busy-gated (`Settings.swift:83`). Many actions remain mouse-only: archive/pin/rename/remove worktree, open in IDE (existing Open toolbar control), copy path/branch, splits, tab close.
 
 ### (d) Prioritized fixes
 
 - **P1:** Deterministic focus restoration — track `lastFocusedPaneID` on pane focus; on sheet/alert dismissal, re-focus that pane's terminal. Reuse the `Workspace.swift:98` predicate.
 - **P1:** Gate poll-path errors to a non-modal banner; reserve `.alert` for user-initiated failures (`Workspace.swift:186,195,199,208`).
-- **P2:** Palette: explicit query-field focus on appear, arrow-key selection, ⌘K alias, per-row shortcut glyphs (the `Action.key` field already exists at `Settings.swift:46`).
+- **P2:** Palette: explicit query-field focus on appear, arrow-key selection, ⌘K alias, per-row shortcut glyphs (add shortcut metadata separately from the stable action identity).
 - **P2:** Active-pane indicator — observe `window?.firstResponder === view` in `TerminalPane`; 1-pt accent border on focus.
 - **P2:** Add missing core shortcuts as menu items (⌘W close, ⌘D/⇧⌘D split, tab cycle ⇧⌘]/⇧⌘[, copy path ⇧⌘C, copy branch); promote hidden ⌘N into a `CommandGroup`.
 - **P3:** ⌘⇧A "jump to next pane/worktree needing attention" (requires the status enum from Part 2) plus a sidebar attention badge.

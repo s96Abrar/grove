@@ -8,26 +8,35 @@ struct SettingsView: View {
     @State private var resetting = false
     var body: some View {
         TabView {
-            Form {
-                Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
-                Picker("Terminal font", selection: $model.fontName) {
-                    Text("System Monospaced").tag("")
-                    if !model.fontName.isEmpty && !fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
-                    ForEach(fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
-                }
-                Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
-                Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
-                Text("New terminals use Grove’s own tmux server. Quit detaches; reopening restores sessions. Existing screen sessions stay attached until closed.").font(.caption).foregroundStyle(.secondary)
-                if PersistentTerminal.tmux == nil {
-                    Text("Install tmux for persistent terminals: brew install tmux").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
-                }
-                TextField("New worktree base ref", text: $model.baseRef)
-                Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
-                if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }
-                Button("Reset Workspace Metadata…", role: .destructive) { resetting = true }
-                Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
-                Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
-            }.padding(24).tabItem { Label("General", systemImage: "gear") }
+            ScrollView {
+                Form {
+                    Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
+                    Picker("Visual profile", selection: $profile.profile) {
+                        ForEach(PerformanceProfile.allCases) { mode in Text(mode.label).tag(mode) }
+                    }
+                    Text("Auto adapts to sustained Low Power Mode and thermal pressure. Manual profiles apply immediately.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Picker("Terminal font", selection: $model.fontName) {
+                        Text("System Monospaced").tag("")
+                        if !model.fontName.isEmpty && !fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
+                        ForEach(fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
+                    }
+                    Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
+                    Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
+                    Text("New terminals use Grove’s own tmux server. Quit detaches; reopening restores sessions. Existing screen sessions stay attached until closed.").font(.caption).foregroundStyle(.secondary)
+                    if PersistentTerminal.tmux == nil {
+                        Text("Install tmux for persistent terminals: brew install tmux").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                    }
+                    TextField("New worktree base ref", text: $model.baseRef)
+                    Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
+                    if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }
+                    Button("Reset Workspace Metadata…", role: .destructive) { resetting = true }
+                    Toggle("Sort worktrees by attention", isOn: $model.triageSort)
+                    Toggle("Compact sidebar", isOn: $model.compactSidebar)
+                    Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
+                    Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
+                }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            }.tabItem { Label("General", systemImage: "gear") }
             ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
             ShortcutsHelpView().tabItem { Label("Help", systemImage: "questionmark.circle") }
         }.frame(width: 660, height: 640)
@@ -46,28 +55,29 @@ struct PaletteView: View {
     @State private var cloning = false
     @State private var selection = 0
     @State private var keyMonitor: Any?
+    @State private var paletteWindow = PaletteWindowReference()
     @FocusState private var queryFocused: Bool
-    struct Action: Identifiable { var id: String { key ?? name }; var key: String? = nil; let name: String; let icon: String; let run: () -> Void }
+    struct Action: Identifiable { var id: String { actionID ?? name }; var actionID: String? = nil; var shortcut: String? = nil; let name: String; let icon: String; let run: () -> Void }
     var actions: [Action] {
         var result = [
-            Action(key: "⇧⌘T", name: "New terminal tab", icon: "terminal", run: { model.addTab() }),
-            Action(key: "⌘N", name: "Create worktree…", icon: "arrow.triangle.branch", run: { model.showCreateSheet = true }),
-            Action(key: "⌘O", name: "Add folder or repository", icon: "folder.badge.plus", run: { model.open() }),
+            Action(shortcut: "⇧⌘T", name: "New terminal tab", icon: "terminal", run: { model.addTab() }),
+            Action(shortcut: "⌘N", name: "Create worktree…", icon: "arrow.triangle.branch", run: { model.showCreateSheet = true }),
+            Action(shortcut: "⌘O", name: "Add folder or repository", icon: "folder.badge.plus", run: { model.open() }),
             Action(name: "Clone repository…", icon: "square.and.arrow.down", run: { cloning = true }),
-            Action(key: "⌘R", name: "Run primary script", icon: "play.fill", run: { if let script = model.primaryScript { model.runScript(script) } }),
+            Action(shortcut: "⌘R", name: "Run primary script", icon: "play.fill", run: { if let script = model.primaryScript { model.runScript(script) } }),
             Action(name: "Refresh repositories", icon: "arrow.clockwise", run: { Task { await model.reload() } }),
             Action(name: "Refresh GitHub pull request", icon: "arrow.triangle.pull", run: { Task { await model.refreshPR() } }),
-            Action(key: "⌘⇧A", name: "Next worktree needing attention", icon: "exclamationmark.triangle", run: { model.jumpToNextAttention() }),
-            Action(key: "⌃⌘C", name: "Copy worktree path", icon: "doc.on.doc", run: { model.copyWorktreePath() }),
-            Action(key: "⇧⌘B", name: "Copy branch name", icon: "doc.on.doc", run: { model.copyBranchName() }),
-            Action(key: "⌘D", name: "Split terminal left / right", icon: "rectangle.split.2x1", run: { if let path = model.selected?.path, let active = model.activeTab(at: path) { model.split(tab: active.id, vertical: true) } }),
-            Action(key: "⇧⌘D", name: "Split terminal top / bottom", icon: "rectangle.split.2x2", run: { if let path = model.selected?.path, let active = model.activeTab(at: path) { model.split(tab: active.id, vertical: false) } }),
-            Action(key: "⌘W", name: "Close pane or tab", icon: "xmark", run: { model.closeFocused() })
+            Action(shortcut: "⌘⇧A", name: "Next worktree needing attention", icon: "exclamationmark.triangle", run: { model.jumpToNextAttention() }),
+            Action(shortcut: "⌃⌘C", name: "Copy worktree path", icon: "doc.on.doc", run: { model.copyWorktreePath() }),
+            Action(shortcut: "⇧⌘B", name: "Copy branch name", icon: "doc.on.doc", run: { model.copyBranchName() }),
+            Action(shortcut: "⌘D", name: "Split terminal left / right", icon: "rectangle.split.2x1", run: { if let path = model.selected?.path, let active = model.activeTab(at: path) { model.split(tab: active.id, vertical: true) } }),
+            Action(shortcut: "⇧⌘D", name: "Split terminal top / bottom", icon: "rectangle.split.2x2", run: { if let path = model.selected?.path, let active = model.activeTab(at: path) { model.split(tab: active.id, vertical: false) } }),
+            Action(shortcut: "⌘W", name: "Close pane or tab", icon: "xmark", run: { model.closeFocused() })
         ]
         for root in model.roots {
-            for tree in model.trees[root] ?? [] { result.append(Action(name: "Go to \(URL(fileURLWithPath: root).lastPathComponent) / \(tree.branch)", icon: "arrow.triangle.branch", run: { model.select(tree) })) }
+            for tree in model.trees[root] ?? [] { result.append(Action(actionID: "worktree:" + tree.path, name: "Go to \(URL(fileURLWithPath: root).lastPathComponent) / \(tree.branch)", icon: "arrow.triangle.branch", run: { model.select(tree) })) }
         }
-        for script in model.availableScripts { result.append(Action(key: script.id.uuidString, name: "Run script: \(script.name)", icon: script.icon, run: { model.runScript(script) })) }
+        for script in model.availableScripts { result.append(Action(actionID: script.id.uuidString, name: "Run script: \(script.name)", icon: script.icon, run: { model.runScript(script) })) }
         return result.filter { query.isEmpty || Self.matches(query, in: $0.name) }
     }
     static func matches(_ needle: String, in haystack: String) -> Bool {
@@ -83,6 +93,7 @@ struct PaletteView: View {
             TextField("Where do you want to go?", text: $query)
                 .font(.title3).textFieldStyle(.plain)
                 .focused($queryFocused)
+                .background(PaletteWindowReader(reference: paletteWindow).allowsHitTesting(false))
                 .onSubmit { executeSelection() }
                 .onChange(of: query) { _, _ in selection = 0 }
             Divider()
@@ -93,8 +104,8 @@ struct PaletteView: View {
                             HStack {
                                 Label(action.name, systemImage: action.icon)
                                 Spacer()
-                                if let key = action.key {
-                                    Text(key).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                                if let shortcut = action.shortcut {
+                                    Text(shortcut).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
                                 }
                                 if index == selection { Image(systemName: "return") }
                             }.padding(10).contentShape(Rectangle())
@@ -115,14 +126,26 @@ struct PaletteView: View {
                 }.disabled(cloneURL.isEmpty)
             }
             if !model.pullRequest.isEmpty { ScrollView { Text(model.pullRequest).font(.system(size: 11, design: .monospaced)).textSelection(.enabled) }.frame(height: 100) }
-            HStack { Text("GROVE COMMANDS").font(.caption2).foregroundStyle(.secondary); Spacer(); Text("↑↓ navigate · Return run · Esc close").font(.caption2).foregroundStyle(.secondary) }
+            HStack { Text("GROVE COMMANDS").font(.caption2).foregroundStyle(.secondary); Spacer(); Text("↑↓ navigate · Return run · Esc back/clear/close").font(.caption2).foregroundStyle(.secondary) }
         }.padding(20).frame(width: 560, height: 420)
         .onAppear {
             queryFocused = true
             // Arrow-key navigation: the query field is first responder, so
             // .onMoveCommand on containers never fires — intercept locally.
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                guard !creating && !cloning else { return event }
+                guard model.palette, let window = paletteWindow.window, event.window === window,
+                      window.isKeyWindow,
+                      event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return event }
+                // Let the input method handle candidate navigation/cancellation.
+                if let editor = window.firstResponder as? NSTextView, editor.hasMarkedText() { return event }
+                if event.keyCode == 53 {
+                    if creating || cloning { creating = false; cloning = false; queryFocused = true }
+                    else if !query.isEmpty { query = ""; selection = 0; queryFocused = true }
+                    else { model.palette = false }
+                    return nil
+                }
+                guard !creating && !cloning, queryFocused,
+                      let editor = window.firstResponder as? NSTextView, editor.isFieldEditor else { return event }
                 switch event.keyCode {
                 case 125: selection = min(selection + 1, max(actions.count - 1, 0)); return nil
                 case 126: selection = max(selection - 1, 0); return nil
@@ -130,7 +153,7 @@ struct PaletteView: View {
                 }
             }
         }
-        .onDisappear { if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }; keyMonitor = nil }
+        .onDisappear { if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }; keyMonitor = nil; paletteWindow.window = nil }
     }
     func execute(_ action: Action) {
         action.run()
@@ -139,6 +162,33 @@ struct PaletteView: View {
     func executeSelection() {
         if actions.indices.contains(selection) { execute(actions[selection]) }
         else if let first = actions.first { execute(first) }
+    }
+}
+
+
+/// Read the query field's actual hosting window; never infer it from the app's
+/// key window, which may change while a palette remains open in another window.
+private final class PaletteWindowReference {
+    weak var window: NSWindow?
+}
+
+private struct PaletteWindowReader: NSViewRepresentable {
+    let reference: PaletteWindowReference
+    func makeNSView(context: Context) -> WindowView { WindowView(reference: reference) }
+    func updateNSView(_ view: WindowView, context: Context) { view.reference = reference }
+    final class WindowView: NSView {
+        var reference: PaletteWindowReference
+        init(reference: PaletteWindowReference) {
+            self.reference = reference
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            // Only a weak reference is changed; no SwiftUI state is published
+            // during AppKit view updates and the monitor cannot retain a window.
+            reference.window = window
+        }
     }
 }
 
@@ -169,7 +219,7 @@ struct ShortcutsHelpView: View {
                     shortcut("Stop primary script", "⌘.")
                     shortcut("Interrupt terminal command", "⌃C")
                     shortcut("Navigate command palette", "↑↓ · Return")
-                    shortcut("Close command palette", "Escape")
+                    shortcut("Back / clear / close palette", "Escape")
                     shortcut("Open Settings", "⌘,")
                     shortcut("Quit Grove", "⌘Q")
                 }
