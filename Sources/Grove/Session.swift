@@ -26,7 +26,14 @@ import Darwin
             return view
         }
         let terminal = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
-        if state == "Ended" { view = terminal; return terminal }
+        if state == "Ended" {
+            view = terminal
+            // Ended panes still render; apply the requested font now so the
+            // updateNSView guard does not skip it via a stale appliedFont.
+            terminal.font = font
+            appliedFont = font
+            return terminal
+        }
         terminal.processDelegate = self
         terminal.font = font
         appliedFont = font
@@ -93,9 +100,12 @@ struct EmbeddedTerminal: NSViewRepresentable {
     var font: NSFont { NSFont(name: fontName, size: fontSize) ?? .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
     func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent, background: background) }
     func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
-        view.font = font
         // Assign only when the target actually changed: updateNSView fires on
         // every state publish, and each assignment forces a cached-state refresh.
+        if session.appliedFont != font {
+            session.appliedFont = font
+            view.font = font
+        }
         if session.appliedBackground != background {
             session.appliedBackground = background
             view.nativeBackgroundColor = background

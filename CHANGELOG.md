@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Terminal font guard: SwiftUI update passes no longer re-assign the terminal font on every state publish, avoiding SwiftTerm FontSet rebuilds, cell-metric recomputes, selection clears and full re-renders for every open terminal.
+- Restored terminal font guard: `updateNSView` assigns the terminal font only when it actually changed, and ended panes get their font applied at creation so the guard cannot skip them via a stale marker.
 - Split-pane leaves are keyed by pane id: closing a pane or creating a split no longer reuses the previous pane's terminal NSView for a different session (stale PTY display).
 - Changes-pane visibility gating: background poll ticks skip the full `git diff` fetch unless the Changes pane is on screen; opening the pane refreshes it immediately.
 - Changes view memoization: the diff text is parsed once per change instead of on every view-body evaluation, and per-file addition/deletion counts are computed at parse time.
