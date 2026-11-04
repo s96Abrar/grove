@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Terminal font glyph fallback: Nerd Font/Powerline prompt icons render from an installed patched font when the selected terminal font lacks them.
+
 ## 0.3.0 — release preparation
 
 - Original Grove app icon with full macOS icon sizes and source artwork.

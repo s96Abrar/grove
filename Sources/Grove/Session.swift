@@ -21,6 +21,9 @@ import Darwin
         if state == "Ended" { view = terminal; return terminal }
         terminal.processDelegate = self
         terminal.font = font
+        // Prompt-theme icons (Nerd Font/Powerline codepoints) render from an
+        // installed patched font even when the selected font lacks them.
+        terminal.glyphFallbackProvider = NerdFontFallback.shared
         terminal.nativeBackgroundColor = background
         appliedBackground = background
         var env = ProcessInfo.processInfo.environment
