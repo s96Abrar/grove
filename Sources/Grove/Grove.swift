@@ -264,6 +264,12 @@ struct ContentView: View {
         .onChange(of: model.error) { _, newValue in
             if newValue == nil { model.restoreFocus() }
         }
+        .onChange(of: reviewing) { _, visible in
+            // Let background poll ticks skip the full `git diff` while the
+            // Changes pane is closed; refresh immediately when it opens.
+            model.changesViewVisible = visible
+            if visible { Task { await model.refreshChanges() } }
+        }
     }
     private func create() { let name = branch; model.showCreateSheet = false; branch = ""; Task { await model.create(name) } }
 }

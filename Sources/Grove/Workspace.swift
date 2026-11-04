@@ -44,6 +44,9 @@ import AppKit
     private var reattachDebounce: Task<Void, Never>?
     @Published private(set) var workspaceStorageBlocked = false
     private var refreshing = false
+    /// Whether the Changes (diff) pane is currently on screen. Background
+    /// poll ticks skip the full `git diff` fetch when it is not visible.
+    var changesViewVisible = false
     private var closingPaneTabs = Set<UUID>()
     private var removingWorktrees = Set<String>()
     private let verificationPath: String?
@@ -392,9 +395,14 @@ import AppKit
     }
     func refreshChanges(background: Bool = false) async {
         guard let tree = selected, let root = root(for: tree), !isFolder(root) else { return }
+        // Status is cheap and drives badges; the full `git diff` can be
+        // multi-MB, so background ticks only fetch it when the Changes pane
+        // is actually on screen (user-triggered refreshes always include it).
+        let includeDiff = !background || changesViewVisible
         do {
-            let result = try await Task.detached {
+            let result = try await Task.detached { () -> (String, String?) in
                 let status = try Git.run(["status", "--short"], at: tree.path)
+                guard includeDiff else { return (status, nil) }
                 let diff = (try? Git.run(["diff", "--no-ext-diff", "--no-color", "HEAD", "--"], at: tree.path)) ?? "No commits yet."
                 return (status, diff)
             }.value
@@ -402,7 +410,7 @@ import AppKit
             // Publish only on change; identical status/diff strings fire
             // objectWillChange and re-render the whole changes view anyway.
             if status != result.0 { status = result.0 }
-            if diff != result.1 { diff = result.1 }
+            if let newDiff = result.1, diff != newDiff { diff = newDiff }
         } catch {
             if background { backgroundError = "Background changes refresh failed: " + error.localizedDescription }
             else { self.error = error.localizedDescription }
