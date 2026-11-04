@@ -167,6 +167,9 @@ struct ContentView: View {
     @State private var branch = ""
     @State private var reviewing = false
     @State private var browsing = false
+    /// Stable per-window identity so Workspace tracks each content view's
+    /// Changes-pane visibility independently across windows.
+    @State private var changesViewID = UUID()
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var profile = PerformanceProfileManager.shared
@@ -267,8 +270,12 @@ struct ContentView: View {
         .onChange(of: reviewing) { _, visible in
             // Let background poll ticks skip the full `git diff` while the
             // Changes pane is closed; refresh immediately when it opens.
-            model.changesViewVisible = visible
+            model.setChangesViewVisible(visible, id: changesViewID)
             if visible { Task { await model.refreshChanges() } }
+        }
+        .onDisappear {
+            // A closed window's pane must stop counting as visible.
+            model.setChangesViewVisible(false, id: changesViewID)
         }
     }
     private func create() { let name = branch; model.showCreateSheet = false; branch = ""; Task { await model.create(name) } }

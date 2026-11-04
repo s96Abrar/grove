@@ -44,9 +44,14 @@ import AppKit
     private var reattachDebounce: Task<Void, Never>?
     @Published private(set) var workspaceStorageBlocked = false
     private var refreshing = false
-    /// Whether the Changes (diff) pane is currently on screen. Background
-    /// poll ticks skip the full `git diff` fetch when it is not visible.
-    var changesViewVisible = false
+    /// Window content views currently showing the Changes (diff) pane,
+    /// keyed by view-instance id. Multiple windows share this Workspace:
+    /// one window closing its pane must not silence diff updates in another.
+    private var visibleChangesViews = Set<UUID>()
+    var changesViewVisible: Bool { !visibleChangesViews.isEmpty }
+    func setChangesViewVisible(_ visible: Bool, id: UUID) {
+        if visible { visibleChangesViews.insert(id) } else { visibleChangesViews.remove(id) }
+    }
     private var closingPaneTabs = Set<UUID>()
     private var removingWorktrees = Set<String>()
     private let verificationPath: String?
