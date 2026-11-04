@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Terminal font guard: SwiftUI update passes no longer re-assign the terminal font on every state publish, avoiding SwiftTerm FontSet rebuilds, cell-metric recomputes, selection clears and full re-renders for every open terminal.
+- Multi-window Changes tracking: each window's Changes pane registers its own visibility, so closing the pane in one window no longer stops diff updates in another.
+- Triage status publication: worktree triage icons and sorting refresh as soon as stable agent/busy statuses change, instead of relying on unrelated poll publishes.
+- Restored terminal font guard: `updateNSView` assigns the terminal font only when it actually changed, and ended panes get their font applied at creation so the guard cannot skip them via a stale marker.
+- Split-pane leaves are keyed by pane id: closing a pane or creating a split no longer reuses the previous pane's terminal NSView for a different session (stale PTY display).
+- Changes-pane visibility gating: background poll ticks skip the full `git diff` fetch unless the Changes pane is on screen; opening the pane refreshes it immediately.
+- Changes view memoization: the diff text is parsed once per change instead of on every view-body evaluation, and per-file addition/deletion counts are computed at parse time.
+- Sidebar owns its search state: sidebar search keystrokes no longer re-evaluate the whole content view and every terminal pane's NSViewRepresentable update pass.
+- Poll invalidation guards: worktree lists, status, diff and diff-stats are published only when their values actually change, so idle poll ticks no longer re-render every observing view.
 - Terminal font glyph fallback: Nerd Font/Powerline prompt icons render from an installed patched font when the selected terminal font lacks them.
 
 ## 0.3.0 — release preparation

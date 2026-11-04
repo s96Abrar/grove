@@ -14,13 +14,29 @@ import Darwin
     /// against redundant `nativeBackgroundColor` assignments from frequent
     /// `updateNSView` passes (each assignment forces cached-state refresh).
     var appliedBackground: NSColor?
+    /// Last terminal font applied to this session's view; guards against
+    /// redundant `view.font` assignments, each of which forces SwiftTerm to
+    /// rebuild its FontSet, recompute cell metrics, clear selections and
+    /// re-render the whole terminal on the main thread.
+    var appliedFont: NSFont?
     init(_ record: PaneRecord) { self.record = record; title = record.title }
     func terminal(path: String, font: NSFont, persistent: Bool, background: NSColor) -> LocalProcessTerminalView {
-        if let view { view.font = font; return view }
+        if let view {
+            if appliedFont != font { appliedFont = font; view.font = font }
+            return view
+        }
         let terminal = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
-        if state == "Ended" { view = terminal; return terminal }
+        if state == "Ended" {
+            view = terminal
+            // Ended panes still render; apply the requested font now so the
+            // updateNSView guard does not skip it via a stale appliedFont.
+            terminal.font = font
+            appliedFont = font
+            return terminal
+        }
         terminal.processDelegate = self
         terminal.font = font
+        appliedFont = font
         // Prompt-theme icons (Nerd Font/Powerline codepoints) render from an
         // installed patched font even when the selected font lacks them.
         terminal.glyphFallbackProvider = NerdFontFallback.shared
@@ -84,9 +100,12 @@ struct EmbeddedTerminal: NSViewRepresentable {
     var font: NSFont { NSFont(name: fontName, size: fontSize) ?? .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
     func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent, background: background) }
     func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
-        view.font = font
         // Assign only when the target actually changed: updateNSView fires on
         // every state publish, and each assignment forces a cached-state refresh.
+        if session.appliedFont != font {
+            session.appliedFont = font
+            view.font = font
+        }
         if session.appliedBackground != background {
             session.appliedBackground = background
             view.nativeBackgroundColor = background

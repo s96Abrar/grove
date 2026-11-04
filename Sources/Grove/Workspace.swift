@@ -44,6 +44,14 @@ import AppKit
     private var reattachDebounce: Task<Void, Never>?
     @Published private(set) var workspaceStorageBlocked = false
     private var refreshing = false
+    /// Window content views currently showing the Changes (diff) pane,
+    /// keyed by view-instance id. Multiple windows share this Workspace:
+    /// one window closing its pane must not silence diff updates in another.
+    private var visibleChangesViews = Set<UUID>()
+    var changesViewVisible: Bool { !visibleChangesViews.isEmpty }
+    func setChangesViewVisible(_ visible: Bool, id: UUID) {
+        if visible { visibleChangesViews.insert(id) } else { visibleChangesViews.remove(id) }
+    }
     private var closingPaneTabs = Set<UUID>()
     private var removingWorktrees = Set<String>()
     private let verificationPath: String?
@@ -227,16 +235,20 @@ import AppKit
         return statuses.min { $0.sortRank < $1.sortRank } ?? .idle
     }
 
-    /// Commit only status samples observed twice in succession.
-    private var lastStatuses: [String: WorktreeStatus] = [:]
+    /// Commit only status samples observed twice in succession. Published:
+    /// sidebar triage icons/sorting read stableStatus, so a change must
+    /// invalidate views even when diffStats and trees are unchanged.
+    @Published private(set) var lastStatuses: [String: WorktreeStatus] = [:]
     private var previousStatusSamples: [String: WorktreeStatus] = [:]
     func stableStatus(for path: String) -> WorktreeStatus { lastStatuses[path] ?? .idle }
 
     func recordStatusSnapshot() {
         let sample = Dictionary(uniqueKeysWithValues: saved.tabs.keys.map { ($0, status(for: $0)) })
-        lastStatuses = lastStatuses.filter { sample[$0.key] != nil }
-        for (path, state) in sample where previousStatusSamples[path] == state { lastStatuses[path] = state }
+        var committed = lastStatuses.filter { sample[$0.key] != nil }
+        for (path, state) in sample where previousStatusSamples[path] == state { committed[path] = state }
         previousStatusSamples = sample
+        // Publish exactly once, and only when the stable statuses changed.
+        if lastStatuses != committed { lastStatuses = committed }
     }
 
     /// Tier-gated batch diff summary poll for visible worktrees.
@@ -263,7 +275,7 @@ import AppKit
             }
             return result
         }.value
-        diffStats = stats
+        if diffStats != stats { diffStats = stats }
         recordStatusSnapshot()
     }
 
@@ -370,7 +382,13 @@ import AppKit
     func reload() async {
         guard !refreshing else { return }; refreshing = true; defer { refreshing = false }
         for root in roots {
-            do { trees[root] = try await Task.detached { try Git.list(at: root) }.value }
+            do {
+                // Publish only on actual change: unconditional reassignment
+                // fires objectWillChange and re-renders every observing view
+                // on every poll tick, even for an idle workspace.
+                let listed = try await Task.detached { try Git.list(at: root) }.value
+                if trees[root] != listed { trees[root] = listed }
+            }
             catch {
                 if isFolder(root) && FileManager.default.fileExists(atPath: root) { trees[root] = [Worktree(path: root, branch: URL(fileURLWithPath: root).lastPathComponent)] }
                 else { backgroundError = "Background repository refresh failed: \(error.localizedDescription)" }
@@ -386,13 +404,22 @@ import AppKit
     }
     func refreshChanges(background: Bool = false) async {
         guard let tree = selected, let root = root(for: tree), !isFolder(root) else { return }
+        // Status is cheap and drives badges; the full `git diff` can be
+        // multi-MB, so background ticks only fetch it when the Changes pane
+        // is actually on screen (user-triggered refreshes always include it).
+        let includeDiff = !background || changesViewVisible
         do {
-            let result = try await Task.detached {
+            let result = try await Task.detached { () -> (String, String?) in
                 let status = try Git.run(["status", "--short"], at: tree.path)
+                guard includeDiff else { return (status, nil) }
                 let diff = (try? Git.run(["diff", "--no-ext-diff", "--no-color", "HEAD", "--"], at: tree.path)) ?? "No commits yet."
                 return (status, diff)
             }.value
-            guard selected == tree else { return }; status = result.0; diff = result.1
+            guard selected == tree else { return }
+            // Publish only on change; identical status/diff strings fire
+            // objectWillChange and re-render the whole changes view anyway.
+            if status != result.0 { status = result.0 }
+            if let newDiff = result.1, diff != newDiff { diff = newDiff }
         } catch {
             if background { backgroundError = "Background changes refresh failed: " + error.localizedDescription }
             else { self.error = error.localizedDescription }
