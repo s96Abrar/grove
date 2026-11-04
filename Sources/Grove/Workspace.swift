@@ -230,16 +230,20 @@ import AppKit
         return statuses.min { $0.sortRank < $1.sortRank } ?? .idle
     }
 
-    /// Commit only status samples observed twice in succession.
-    private var lastStatuses: [String: WorktreeStatus] = [:]
+    /// Commit only status samples observed twice in succession. Published:
+    /// sidebar triage icons/sorting read stableStatus, so a change must
+    /// invalidate views even when diffStats and trees are unchanged.
+    @Published private(set) var lastStatuses: [String: WorktreeStatus] = [:]
     private var previousStatusSamples: [String: WorktreeStatus] = [:]
     func stableStatus(for path: String) -> WorktreeStatus { lastStatuses[path] ?? .idle }
 
     func recordStatusSnapshot() {
         let sample = Dictionary(uniqueKeysWithValues: saved.tabs.keys.map { ($0, status(for: $0)) })
-        lastStatuses = lastStatuses.filter { sample[$0.key] != nil }
-        for (path, state) in sample where previousStatusSamples[path] == state { lastStatuses[path] = state }
+        var committed = lastStatuses.filter { sample[$0.key] != nil }
+        for (path, state) in sample where previousStatusSamples[path] == state { committed[path] = state }
         previousStatusSamples = sample
+        // Publish exactly once, and only when the stable statuses changed.
+        if lastStatuses != committed { lastStatuses = committed }
     }
 
     /// Tier-gated batch diff summary poll for visible worktrees.
