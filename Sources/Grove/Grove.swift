@@ -344,7 +344,16 @@ struct SessionTabs: View {
     private var closingPane: UUID? { model.pendingClose?.pane }
     func splitView(_ node: SplitNode, panes: [PaneRecord]) -> AnyView {
         switch node {
-        case .pane(let id): return AnyView(Group { if let record = panes.first(where: { $0.id == id }) { paneView(record).frame(minWidth: 160, minHeight: 100) } })
+        case .pane(let id):
+            // Key the leaf on the pane id: positional identity let SwiftUI
+            // reuse the previous pane's NSViewRepresentable after a close or
+            // split, driving the old pane's PTY view with the new session.
+            // (AnyView stays: a recursive @ViewBuilder cannot return `some View`.)
+            return AnyView(Group {
+                if let record = panes.first(where: { $0.id == id }) {
+                    paneView(record).frame(minWidth: 160, minHeight: 100).id(record.id)
+                }
+            })
         case .split(let vertical, let first, let second):
             if vertical { return AnyView(HSplitView { splitView(first, panes: panes); splitView(second, panes: panes) }) }
             return AnyView(VSplitView { splitView(first, panes: panes); splitView(second, panes: panes) })
