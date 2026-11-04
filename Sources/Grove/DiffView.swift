@@ -26,9 +26,10 @@ struct DiffFile: Identifiable {
     let renamed: Bool
     let hunks: [DiffHunk]
     var metadata: [String] = []
-
-    var additions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .addition }.count } }
-    var deletions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .deletion }.count } }
+    /// Precomputed at parse time so views never rescan every line during
+    /// body evaluation.
+    let additions: Int
+    let deletions: Int
 }
 
 struct SplitRow: Identifiable {
@@ -110,6 +111,7 @@ enum GitDiffParser {
             var hunkHeader = ""
             var hunkLines: [DiffLine] = []
             var oldCounter = 0, newCounter = 0, lineID = 0
+            var additions = 0, deletions = 0
             func flushHunk() {
                 if !hunkLines.isEmpty || !hunkHeader.isEmpty {
                     hunks.append(DiffHunk(id: hunks.count, header: hunkHeader, lines: hunkLines))
@@ -132,6 +134,7 @@ enum GitDiffParser {
                     default: break
                     }
                     let kind: DiffLineKind = l.hasPrefix(" ") ? .context : (l.hasPrefix("+") ? .addition : (l.hasPrefix("-") ? .deletion : .meta))
+                    if kind == .addition { additions += 1 } else if kind == .deletion { deletions += 1 }
                     hunkLines.append(DiffLine(id: lineID, kind: kind, text: body, oldNumber: oldNo, newNumber: newNo))
                     lineID += 1
                 } else if l.hasPrefix("@@") {
@@ -163,7 +166,8 @@ enum GitDiffParser {
             if path.isEmpty { path = oldPath.isEmpty ? "file-\(files.count)" : oldPath }
             files.append(DiffFile(id: path, path: path, oldPath: oldPath.isEmpty ? nil : oldPath,
                                   binary: binary, newFile: newFile, deletedFile: deletedFile,
-                                  renamed: renamed, hunks: hunks, metadata: metadata))
+                                  renamed: renamed, hunks: hunks, metadata: metadata,
+                                  additions: additions, deletions: deletions))
         }
         return files
     }
@@ -202,7 +206,22 @@ struct ChangesDiffView: View {
     let diffText: String
     @State private var split = false
     @State private var collapsed: Set<String> = []
-    private var files: [DiffFile] { GitDiffParser.parse(diffText) }
+    /// Memoized parse: body evaluations (poll ticks, pane updates) must not
+    /// re-parse the full diff text on the main thread; only a changed
+    /// diffText triggers a re-parse. A heap cache avoids mutating @State
+    /// during view update.
+    private final class ParseCache {
+        var key: String?
+        var files: [DiffFile] = []
+    }
+    @State private var cache = ParseCache()
+    private var files: [DiffFile] {
+        if cache.key != diffText {
+            cache.key = diffText
+            cache.files = GitDiffParser.parse(diffText)
+        }
+        return cache.files
+    }
     var body: some View {
         VStack(spacing: 0) {
             HStack {
