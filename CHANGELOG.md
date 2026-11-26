@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security: `grove://` links (and the `grove` CLI) now ask before adding a new folder or creating a worktree, and the file browser asks before opening scripts, launchers, installers or executables.
 - CI: quality checks run on the Apple Silicon runner only; tagged releases still build and verify the universal (arm64 + x86_64) app.
 - Community files: contributing guide, Contributor Covenant 2.1 code of conduct, security policy with private vulnerability reporting, support page, bug/feature issue forms and a pull request template.
 - Terminal font guard: SwiftUI update passes no longer re-assign the terminal font on every state publish, avoiding SwiftTerm FontSet rebuilds, cell-metric recomputes, selection clears and full re-renders for every open terminal.

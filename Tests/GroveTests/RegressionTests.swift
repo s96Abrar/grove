@@ -263,4 +263,54 @@ final class RegressionTests: XCTestCase {
         }
     }
 
+    /// `grove://` URLs can come from any web page or app: adding an unknown
+    /// folder or creating a worktree must wait for confirmation.
+    @MainActor func testURLActionsWaitForConfirmation() async throws {
+        let (model, tree, base) = try fixture()
+        let outside = base.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        var components = URLComponents(string: "grove://open")!
+        components.queryItems = [URLQueryItem(name: "path", value: outside.path)]
+        await model.handleURL(components.url!)
+        XCTAssertEqual(model.pendingURLAction, .open(path: outside.standardizedFileURL.path))
+        XCTAssertFalse(model.roots.contains(outside.standardizedFileURL.path))
+        model.pendingURLAction = nil
+
+        // A worktree already in the workspace is selected without a prompt.
+        components.queryItems = [URLQueryItem(name: "path", value: tree.path)]
+        await model.handleURL(components.url!)
+        XCTAssertNil(model.pendingURLAction)
+
+        var create = URLComponents(string: "grove://new-worktree")!
+        create.queryItems = [URLQueryItem(name: "path", value: tree.path), URLQueryItem(name: "branch", value: "from-link")]
+        await model.handleURL(create.url!)
+        XCTAssertEqual(model.pendingURLAction, .newWorktree(branch: "from-link", worktreePath: tree.path))
+        let root = model.roots[0]
+        XCTAssertFalse(try Git.list(at: root).contains { $0.branch == "from-link" })
+
+        await model.confirmURLAction(model.pendingURLAction)
+        XCTAssertNil(model.pendingURLAction)
+        XCTAssertTrue(try Git.list(at: root).contains { $0.branch == "from-link" })
+    }
+
+    /// Files checked out with Git have no quarantine, so the file browser must
+    /// ask before opening anything that can run code.
+    func testFileBrowserFlagsCodeButNotDocuments() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("grove-files-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: base) }
+        func file(_ name: String, executable: Bool = false) throws -> URL {
+            let url = base.appendingPathComponent(name)
+            try "content".write(to: url, atomically: true, encoding: .utf8)
+            if executable { try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path) }
+            return url
+        }
+        XCTAssertTrue(FileBrowser.mayRunCode(try file("run.command")))
+        XCTAssertTrue(FileBrowser.mayRunCode(try file("Setup.PKG")))
+        XCTAssertTrue(FileBrowser.mayRunCode(try file("build", executable: true)))
+        XCTAssertFalse(FileBrowser.mayRunCode(try file("README.md")))
+        XCTAssertFalse(FileBrowser.mayRunCode(try file("main.swift")))
+        XCTAssertFalse(FileBrowser.mayRunCode(base))
+    }
+
 }
