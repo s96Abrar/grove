@@ -334,6 +334,30 @@ final class RegressionTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(earlyStart), 10)
     }
 
+    /// Inline validation and friendly error text share their rules with the
+    /// operations they guard.
+    func testInputValidationAndErrorExplanations() {
+        XCTAssertNil(Git.branchNameProblem(""))
+        XCTAssertNil(Git.branchNameProblem("feature/new-idea_2"))
+        XCTAssertNotNil(Git.branchNameProblem("-oops"))
+        XCTAssertNotNil(Git.branchNameProblem("has space"))
+        XCTAssertNotNil(Git.branchNameProblem("feature//double"))
+        XCTAssertNotNil(Git.branchNameProblem("trailing/"))
+        XCTAssertNotNil(Git.branchNameProblem(String(repeating: "a", count: 101)))
+        XCTAssertNil(Workspace.cloneURLProblem(""))
+        XCTAssertNil(Workspace.cloneURLProblem("https://example.com/repo.git"))
+        XCTAssertNil(Workspace.cloneURLProblem("git@example.com:team/repo.git"))
+        XCTAssertNotNil(Workspace.cloneURLProblem("file:///tmp/repo"))
+        XCTAssertNotNil(Workspace.cloneURLProblem("https://example.com/my repo.git"))
+
+        let offline = ErrorExplainer.explain("fatal: unable to access 'https://example.com/': Could not resolve host: example.com")
+        XCTAssertTrue(offline.hasPrefix("Grove couldn't reach the server."))
+        XCTAssertTrue(offline.contains("Could not resolve host: example.com"))
+        XCTAssertTrue(ErrorExplainer.explain("ls: Operation not permitted").contains("Privacy & Security"))
+        XCTAssertTrue(ErrorExplainer.explain("To get started with GitHub CLI, please run:  gh auth login").contains("gh auth login"))
+        XCTAssertEqual(ErrorExplainer.explain("This worktree is locked."), "This worktree is locked.")
+    }
+
     /// Files checked out with Git have no quarantine, so the file browser must
     /// ask before opening anything that can run code.
     func testFileBrowserFlagsCodeButNotDocuments() throws {

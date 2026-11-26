@@ -24,7 +24,8 @@ struct FileBrowser: View {
                     Label(file.lastPathComponent, systemImage: (try? file.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true ? "folder" : "doc.text").font(.system(size: 11)).lineLimit(1)
                 }.buttonStyle(.plain).contextMenu { Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) } }
             }
-            if let error { Text(error).font(.caption).foregroundStyle(.red).padding() }
+            if let error { Text(ErrorExplainer.explain(error)).font(.caption).foregroundStyle(.red).padding().textSelection(.enabled) }
+            else if files.isEmpty { Text("No visible files in this folder.").font(.caption).foregroundStyle(.secondary).padding() }
         }.frame(minWidth: 180, idealWidth: 220, maxWidth: 300).task { load() }
         .confirmationDialog("Open “\(confirming?.lastPathComponent ?? "")”?", isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } })) {
             Button("Open") { if let file = confirming { NSWorkspace.shared.open(file) }; confirming = nil }

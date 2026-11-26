@@ -122,14 +122,16 @@ struct PaletteView: View {
             }
             if creating {
                 TextField("New branch name", text: $branch).accessibilityLabel("New branch name")
-                Button("Create worktree") { Task { await model.create(branch) }; model.palette = false }.disabled(branch.isEmpty || model.busy)
+                if let problem = Git.branchNameProblem(branch) { Text(problem).font(.caption).foregroundStyle(.red) }
+                Button("Create worktree") { Task { await model.create(branch) }; model.palette = false }.disabled(branch.isEmpty || Git.branchNameProblem(branch) != nil || model.busy)
             }
             if cloning {
                 TextField("HTTPS or SSH Git URL", text: $cloneURL).accessibilityLabel("Git repository URL")
+                if let problem = Workspace.cloneURLProblem(cloneURL) { Text(problem).font(.caption).foregroundStyle(.red) }
                 Button("Choose destination and clone…") {
                     let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
                     if panel.runModal() == .OK, let parent = panel.url { Task { await model.clone(cloneURL, to: parent) }; model.palette = false }
-                }.disabled(cloneURL.isEmpty)
+                }.disabled(cloneURL.isEmpty || Workspace.cloneURLProblem(cloneURL) != nil || model.cloneInProgress != nil)
             }
             if !model.pullRequest.isEmpty { ScrollView { Text(model.pullRequest).font(.system(size: 11, design: .monospaced)).textSelection(.enabled) }.frame(height: 100) }
             HStack { Text("GROVE COMMANDS").font(.caption2).foregroundStyle(.secondary); Spacer(); Text("↑↓ navigate · Return run · Esc back/clear/close").font(.caption2).foregroundStyle(.secondary) }
