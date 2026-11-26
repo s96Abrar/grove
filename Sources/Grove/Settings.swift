@@ -89,6 +89,7 @@ struct PaletteView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Where do you want to go?", text: $query)
+                .accessibilityLabel("Search commands")
                 .font(.title3).textFieldStyle(.plain)
                 .focused($queryFocused)
                 .background(PaletteWindowReader(reference: paletteWindow).allowsHitTesting(false))
@@ -113,11 +114,11 @@ struct PaletteView: View {
                 }
             }
             if creating {
-                TextField("New branch name", text: $branch)
+                TextField("New branch name", text: $branch).accessibilityLabel("New branch name")
                 Button("Create worktree") { Task { await model.create(branch) }; model.palette = false }.disabled(branch.isEmpty || model.busy)
             }
             if cloning {
-                TextField("HTTPS or SSH Git URL", text: $cloneURL)
+                TextField("HTTPS or SSH Git URL", text: $cloneURL).accessibilityLabel("Git repository URL")
                 Button("Choose destination and clone…") {
                     let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
                     if panel.runModal() == .OK, let parent = panel.url { Task { await model.clone(cloneURL, to: parent) }; model.palette = false }
