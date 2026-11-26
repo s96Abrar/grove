@@ -1,4 +1,4 @@
-.PHONY: build check icon package release-preflight lint
+.PHONY: build check icon package release-preflight lint perf
 build:
 	bash scripts/build-app.sh
 check:
@@ -12,3 +12,6 @@ release-preflight:
 
 lint:
 	bash scripts/lint-workflows.sh
+
+perf:
+	python3 scripts/perf.py
