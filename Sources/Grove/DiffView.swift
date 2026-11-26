@@ -286,7 +286,9 @@ struct DiffFileView: View {
             }.buttonStyle(.plain)
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
+            .help(collapsed ? "Show changes" : "Hide changes")
             .accessibilityLabel("File \(title), \(file.additions) additions, \(file.deletions) deletions\(collapsed ? ", collapsed" : "")")
+            .accessibilityHint(collapsed ? "Shows this file's changes" : "Hides this file's changes")
             if !collapsed {
                 if file.binary {
                     Text("Binary file not shown.").font(.caption).foregroundStyle(.secondary).padding(10)
@@ -326,8 +328,10 @@ struct UnifiedLineRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Text(line.oldNumber.map(String.init) ?? "")
+                .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                 .frame(width: 42, alignment: .trailing).padding(.horizontal, 4)
             Text(line.newNumber.map(String.init) ?? "")
+                .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                 .frame(width: 42, alignment: .trailing).padding(.horizontal, 4)
             Text(prefix + line.text)
                 .font(.system(size: 11, design: .monospaced))
@@ -347,7 +351,7 @@ struct UnifiedLineRow: View {
     private var prefix: String {
         switch line.kind {
         case .addition: return "+ "
-        case .deletion: return "− "
+        case .deletion: return "- "
         case .hunkHeader, .meta: return ""
         case .context: return "  "
         }
@@ -417,6 +421,7 @@ struct SplitCell: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Text(lineNumber.map(String.init) ?? "")
+                .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .trailing).padding(.horizontal, 4)
             Text(prefix + (line?.text ?? ""))
                 .font(.system(size: 11, design: .monospaced))
@@ -438,7 +443,7 @@ struct SplitCell: View {
         guard let line else { return "" }
         switch line.kind {
         case .addition: return "+ "
-        case .deletion: return "− "
+        case .deletion: return "- "
         default: return line.text.isEmpty ? "" : "  "
         }
     }

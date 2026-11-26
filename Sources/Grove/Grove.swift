@@ -82,6 +82,7 @@ import AppKit
             }
         }
         Settings { SettingsView().environmentObject(workspace) }
+            .windowResizability(.contentMinSize)
     }
 }
 
