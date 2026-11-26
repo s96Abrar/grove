@@ -315,6 +315,25 @@ final class RegressionTests: XCTestCase {
         XCTAssertTrue(try Git.list(at: root).contains { $0.path == tree.path })
     }
 
+    /// Clone Cancel terminates the running command, including a cancel that
+    /// arrives before the process has started.
+    func testProcessHandleCancelsCommand() async throws {
+        let running = ProcessHandle()
+        let started = Date()
+        let task = Task.detached { try Shell.run("sleep", ["30"], at: NSTemporaryDirectory(), handle: running) }
+        try await Task.sleep(for: .milliseconds(300))
+        running.cancel()
+        do { _ = try await task.value; XCTFail("A cancelled command reported success") } catch {}
+        XCTAssertTrue(running.isCancelled)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 10)
+
+        let early = ProcessHandle()
+        early.cancel()
+        let earlyStart = Date()
+        XCTAssertThrowsError(try Shell.run("sleep", ["30"], at: NSTemporaryDirectory(), handle: early))
+        XCTAssertLessThan(Date().timeIntervalSince(earlyStart), 10)
+    }
+
     /// Files checked out with Git have no quarantine, so the file browser must
     /// ask before opening anything that can run code.
     func testFileBrowserFlagsCodeButNotDocuments() throws {
