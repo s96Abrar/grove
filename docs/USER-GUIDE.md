@@ -92,7 +92,7 @@ See [privacy](PRIVACY.md), [development](DEVELOPMENT.md) and [testing](TESTING.m
 
 ## Workspace recovery and 0.3 lifecycle changes
 
-The active tab is now remembered. Workspace saves retain the previous valid snapshot; malformed metadata is preserved and a valid backup is restored when possible. If neither snapshot can be read, saves are blocked instead of replacing your data. Settings → Reset Workspace Metadata is an explicit confirmed recovery action; it does not delete source folders or Git worktrees. The unreadable/reset snapshot is retained locally.
+The active tab is now remembered. Workspace saves retain the previous valid snapshot; malformed metadata is preserved and a valid backup is restored when possible. If neither snapshot can be read, saves are blocked instead of replacing your data. Settings → Reset Workspace Metadata is an explicit confirmed action: it deletes saved metadata and its backup, but never source folders or Git worktrees. A recovery copy of earlier unreadable metadata is kept unless you choose **Reset and Delete Recovery Copy**.
 
 Confirmed tab closure now ends that tab’s sessions and running commands. Regular Quit keeps persistent sessions alive; Quit and End Grove Sessions stops saved sessions and reports failures. Worktree removal also refuses ignored files such as .env. App packaging and tagged release instructions are in [Releasing](RELEASING.md).
 

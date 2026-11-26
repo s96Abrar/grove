@@ -52,6 +52,23 @@ import Foundation
         precondition(backup.recoveredBackup)
         precondition(backup.state.tabs["/tmp/project"]![0].panes.count == 1)
         precondition(defaults.data(forKey: WorkspacePersistence.unreadableKey) == broken)
+        // A user-chosen reset deletes readable metadata instead of keeping a copy,
+        // but leaves the earlier corrupt-data recovery copy unless asked.
+        let resetSuite = "grove.state-check.reset." + UUID().uuidString
+        let resetDefaults = UserDefaults(suiteName: resetSuite)!
+        defer { resetDefaults.removePersistentDomain(forName: resetSuite) }
+        try WorkspacePersistence.save(first, to: resetDefaults)
+        try WorkspacePersistence.save(second, to: resetDefaults)
+        WorkspacePersistence.reset(in: resetDefaults)
+        precondition(resetDefaults.data(forKey: WorkspacePersistence.currentKey) == nil)
+        precondition(resetDefaults.data(forKey: WorkspacePersistence.backupKey) == nil)
+        precondition(!WorkspacePersistence.hasRecoveryCopy(in: resetDefaults))
+        resetDefaults.set(broken, forKey: WorkspacePersistence.unreadableKey)
+        try WorkspacePersistence.save(first, to: resetDefaults)
+        WorkspacePersistence.reset(in: resetDefaults)
+        precondition(resetDefaults.data(forKey: WorkspacePersistence.unreadableKey) == broken)
+        WorkspacePersistence.reset(in: resetDefaults, deleteRecoveryCopy: true)
+        precondition(!WorkspacePersistence.hasRecoveryCopy(in: resetDefaults))
         defaults.removeObject(forKey: WorkspacePersistence.backupKey)
         do { _ = try WorkspacePersistence.load(from: defaults); fatalError("Unreadable state silently accepted") } catch {}
         var invalid = first
