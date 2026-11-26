@@ -4,7 +4,8 @@ import AppKit
 struct SettingsView: View {
     @EnvironmentObject var model: Workspace
     @ObservedObject private var profile = PerformanceProfileManager.shared
-    private let fonts = NSFontManager.shared.availableFonts.filter { NSFont(name: $0, size: 13)?.isFixedPitch == true }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    // Static: lazy and computed once. GroveApp.body re-creates this view on every workspace publish.
+    private static let fonts = (NSFontManager.shared.availableFontNames(with: .fixedPitchFontMask) ?? []).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     @State private var resetting = false
     var body: some View {
         TabView {
@@ -17,8 +18,8 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Picker("Terminal font", selection: $model.fontName) {
                     Text("System Monospaced").tag("")
-                    if !model.fontName.isEmpty && !fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
-                    ForEach(fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
+                    if !model.fontName.isEmpty && !Self.fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
+                    ForEach(Self.fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
                 }
                 Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
                 Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
