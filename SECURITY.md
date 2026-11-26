@@ -35,6 +35,10 @@ Out of scope, unless Grove makes the problem worse:
 - **Third-party software.** SwiftTerm, tmux, Git, `gh` and coding agents have their own security processes. Report their bugs upstream; tell us too if Grove is affected.
 - **The accepted distribution policy.** Release builds are ad-hoc-signed and not notarized by Apple, by design (see [Release policy](docs/RELEASING.md)). Gatekeeper prompts on a downloaded build are expected and are not a vulnerability. A broken signature, a checksum mismatch, or a tampered archive that still passes Grove's own verification *is* in scope.
 
+## Automated checks
+
+Dependabot opens weekly update pull requests for GitHub Actions and Swift packages. Every push, every pull request and a weekly run check the pinned Swift packages against the OSV advisory database and scan commits for secrets.
+
 ## Verifying a download
 
 Each release publishes a `SHA256SUMS` file and `release-manifest.json` next to the archive. Check the archive before opening it:
