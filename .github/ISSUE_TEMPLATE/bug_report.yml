@@ -1,0 +1,77 @@
+name: Bug report
+description: Something in Grove doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security problems go through the [Security policy](https://github.com/s96Abrar/grove/security/policy), not a public issue.**
+        Please check [Troubleshooting](https://github.com/s96Abrar/grove/blob/main/docs/DEVELOPMENT.md#troubleshooting) first.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a repository with ⌘O
+        2. Create a worktree with ⌘N
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Grove version or commit
+      description: From Grove > About Grove, or `git rev-parse --short HEAD` for a local build.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: e.g. macOS 26.1
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Mac architecture
+      options:
+        - Apple Silicon (arm64)
+        - Intel (x86_64)
+    validations:
+      required: true
+  - type: dropdown
+    id: persistence
+    attributes:
+      label: Terminal persistence
+      description: Settings > General > "Keep terminal sessions alive with tmux".
+      options:
+        - On (tmux)
+        - Off
+        - Not sure
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Terminal / tabs / splits
+        - Worktrees / Git
+        - Changes (diff) view
+        - Scripts
+        - Command palette / shortcuts
+        - Settings
+        - Build / packaging / install
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove secrets, tokens and private paths first. Terminal output can contain secrets.
+      render: text
