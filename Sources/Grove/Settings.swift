@@ -8,35 +8,33 @@ struct SettingsView: View {
     @State private var resetting = false
     var body: some View {
         TabView {
-            ScrollView {
-                Form {
-                    Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
-                    Picker("Visual profile", selection: $profile.profile) {
-                        ForEach(PerformanceProfile.allCases) { mode in Text(mode.label).tag(mode) }
-                    }
-                    Text("Auto adapts to sustained Low Power Mode and thermal pressure. Manual profiles apply immediately.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Picker("Terminal font", selection: $model.fontName) {
-                        Text("System Monospaced").tag("")
-                        if !model.fontName.isEmpty && !fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
-                        ForEach(fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
-                    }
-                    Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
-                    Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
-                    Text("New terminals use Grove’s own tmux server. Quit detaches; reopening restores sessions. Existing screen sessions stay attached until closed.").font(.caption).foregroundStyle(.secondary)
-                    if PersistentTerminal.tmux == nil {
-                        Text("Install tmux for persistent terminals: brew install tmux").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
-                    }
-                    TextField("New worktree base ref", text: $model.baseRef)
-                    Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
-                    if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }
-                    Button("Reset Workspace Metadata…", role: .destructive) { resetting = true }
-                    Toggle("Sort worktrees by attention", isOn: $model.triageSort)
-                    Toggle("Compact sidebar", isOn: $model.compactSidebar)
-                    Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
-                    Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary)
-                }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            }.tabItem { Label("General", systemImage: "gear") }
+            Form {
+                Picker("Appearance", selection: $model.appearance) { Text("Dark").tag("dark"); Text("Light").tag("light"); Text("System").tag("system") }
+                Picker("Visual profile", selection: $profile.profile) {
+                    ForEach(PerformanceProfile.allCases) { mode in Text(mode.label).tag(mode) }
+                }
+                Text("Auto adapts to sustained Low Power Mode and thermal pressure. Manual profiles apply immediately.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Picker("Terminal font", selection: $model.fontName) {
+                    Text("System Monospaced").tag("")
+                    if !model.fontName.isEmpty && !fonts.contains(model.fontName) { Text("\(model.fontName) (unavailable)").tag(model.fontName) }
+                    ForEach(fonts, id: \.self) { name in Text(NSFont(name: name, size: 13)?.displayName ?? name).tag(name) }
+                }
+                Slider(value: $model.fontSize, in: 10...24, step: 1) { Text("Terminal font: \(Int(model.fontSize)) pt") }
+                Toggle("Keep terminal sessions alive with tmux", isOn: $model.persistent)
+                Text("New terminals use Grove’s own tmux server. Quit detaches; reopening restores sessions. Existing screen sessions stay attached until closed.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if PersistentTerminal.tmux == nil {
+                    Text("Install tmux for persistent terminals: brew install tmux").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                }
+                TextField("New worktree base ref", text: $model.baseRef)
+                Toggle("Fetch before creating worktrees", isOn: $model.fetchBeforeCreate)
+                if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }
+                Button("Reset Workspace Metadata…", role: .destructive) { resetting = true }
+                Toggle("Sort worktrees by attention", isOn: $model.triageSort)
+                Toggle("Compact sidebar", isOn: $model.compactSidebar)
+                Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
+                Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }.padding(24).frame(maxWidth: .infinity, alignment: .leading).tabItem { Label("General", systemImage: "gear") }
             ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
             ShortcutsHelpView().tabItem { Label("Help", systemImage: "questionmark.circle") }
         }.frame(width: 660, height: 640)

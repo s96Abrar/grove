@@ -9,10 +9,10 @@ struct FileBrowser: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Button { directory = URL(fileURLWithPath: directory ?? root).deletingLastPathComponent().path; load() } label: { Image(systemName: "arrow.up") }.disabled((directory ?? root) == root)
+                Button { directory = URL(fileURLWithPath: directory ?? root).deletingLastPathComponent().path; load() } label: { Image(systemName: "arrow.up") }.accessibilityLabel("Parent folder").disabled((directory ?? root) == root)
                 Text(URL(fileURLWithPath: directory ?? root).lastPathComponent).font(.caption).lineLimit(1)
                 Spacer()
-                Button { load() } label: { Image(systemName: "arrow.clockwise") }
+                Button { load() } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Reload files")
             }.buttonStyle(.plain).padding(12)
             List(files, id: \.path) { file in
                 Button {

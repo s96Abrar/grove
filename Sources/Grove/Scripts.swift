@@ -105,9 +105,9 @@ struct ScriptSettingsView: View {
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)
-                        Button { model.runScript(script) } label: { Image(systemName: "play.fill") }.help("Run in selected worktree").disabled(!model.availableScripts.contains { $0.id == script.id } || model.selected == nil)
-                        Button { model.saved.scripts.swapAt(index, index - 1); model.save() } label: { Image(systemName: "arrow.up") }.help("Move earlier").disabled(index == 0)
-                        Button { removing = script } label: { Image(systemName: "trash") }.help("Remove script")
+                        Button { model.runScript(script) } label: { Image(systemName: "play.fill") }.help("Run in selected worktree").accessibilityLabel("Run in selected worktree").disabled(!model.availableScripts.contains { $0.id == script.id } || model.selected == nil)
+                        Button { model.saved.scripts.swapAt(index, index - 1); model.save() } label: { Image(systemName: "arrow.up") }.help("Move earlier").accessibilityLabel("Move earlier").disabled(index == 0)
+                        Button { removing = script } label: { Image(systemName: "trash") }.help("Remove script").accessibilityLabel("Remove script")
                     }
                 }
             }.frame(minHeight: 100)

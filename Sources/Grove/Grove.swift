@@ -191,9 +191,9 @@ struct ContentView: View {
                             Text(tree.path).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                         }
                         Spacer()
-                        Button { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) } label: { Image(systemName: "folder") }.help("Reveal in Finder")
+                        Button { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) } label: { Image(systemName: "folder") }.help("Reveal in Finder").accessibilityLabel("Reveal in Finder")
                         Button { model.terminal() } label: { Label("New tab", systemImage: "plus") }.help("Add an embedded interactive terminal")
-                        Button { browsing.toggle() } label: { Image(systemName: "sidebar.right") }.help("Browse files")
+                        Button { browsing.toggle() } label: { Image(systemName: "sidebar.right") }.help("Browse files").accessibilityLabel("Browse files")
                         Button { reviewing.toggle(); Task { await model.reload(); await model.refreshChanges() } } label: { Label("Changes", systemImage: "square.stack.3d.up") }
                     }.buttonStyle(.bordered).padding(22)
                     Divider()
@@ -244,8 +244,8 @@ struct ContentView: View {
         }
         .sheet(isPresented: Binding(get: { model.pendingRename != nil }, set: { if !$0 { model.pendingRename = nil } }), onDismiss: { model.restoreFocus() }) {
             VStack(spacing: 20) { Text("Rename branch").font(.headline); TextField("Branch name", text: $renamedBranch)
-                HStack { Button("Cancel") { model.pendingRename = nil }
-                    Button("Rename") { if let tree = model.pendingRename { Task { await model.rename(tree, branch: renamedBranch) } }; model.pendingRename = nil } } }
+                HStack { Button("Cancel") { model.pendingRename = nil }.keyboardShortcut(.cancelAction)
+                    Button("Rename") { if let tree = model.pendingRename { Task { await model.rename(tree, branch: renamedBranch) } }; model.pendingRename = nil }.keyboardShortcut(.defaultAction) } }
             .padding(30).frame(width: 350)
             .onAppear { renamedBranch = model.pendingRename?.branch ?? "" }
         }
@@ -259,7 +259,7 @@ struct ContentView: View {
                 Text("Creates a new branch from the configured base reference in a sibling .grove-worktrees directory. Your current files stay in place.").foregroundStyle(.secondary)
                 TextField("feature/my-next-idea", text: $branch).textFieldStyle(.roundedBorder).onSubmit { create() }
                 if model.busy { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Creating worktree…").font(.caption).foregroundStyle(.secondary) } }
-                HStack { Spacer(); Button("Cancel") { model.showCreateSheet = false }
+                HStack { Spacer(); Button("Cancel") { model.showCreateSheet = false }.keyboardShortcut(.cancelAction)
                     Button("Create worktree") { create() }.buttonStyle(.borderedProminent).disabled(branch.isEmpty || model.busy) }
             }.padding(30).frame(width: 460)
         }
@@ -298,7 +298,7 @@ struct SessionTabs: View {
                         ForEach(tabs) { tab in
                             HStack(spacing: 8) {
                                 Button { model.saved.activeTabs = model.saved.activeTabs ?? [:]; model.saved.activeTabs?[path] = tab.id; model.save() } label: { Label(tab.name, systemImage: "terminal") }.buttonStyle(.plain)
-                                Button { model.snapshotFocus(); model.pendingClose = Workspace.CloseRequest(path: path, tab: tab.id, pane: nil) } label: { Image(systemName: "xmark").font(.system(size: 8)) }.buttonStyle(.plain)
+                                Button { model.snapshotFocus(); model.pendingClose = Workspace.CloseRequest(path: path, tab: tab.id, pane: nil) } label: { Image(systemName: "xmark").font(.system(size: 8)) }.buttonStyle(.plain).frame(width: 18, height: 18).contentShape(Rectangle()).help("Close tab").accessibilityLabel("Close tab")
                             }.contextMenu {
                                 Button("Rename…") { tabName = tab.name; renaming = tab }
                                 Button("Move left") { model.moveTab(tab.id, offset: -1) }
@@ -307,11 +307,11 @@ struct SessionTabs: View {
                         }
                     }
                 }
-                Button { model.addTab() } label: { Image(systemName: "plus") }.help("New tab")
+                Button { model.addTab() } label: { Image(systemName: "plus") }.help("New tab").accessibilityLabel("New tab")
                 Menu {
                     Button("Split left / right") { if let active { model.split(tab: active.id, vertical: true) } }
                     Button("Split top / bottom") { if let active { model.split(tab: active.id, vertical: false) } }
-                } label: { Image(systemName: "rectangle.split.2x1") }
+                } label: { Image(systemName: "rectangle.split.2x1") }.help("Split pane").accessibilityLabel("Split pane")
                 if let active, active.scriptID != nil {
                     Button("Stop") { Task { await model.stopScript(active) } }.help("End this script tab's processes")
                     Button("Restart") { Task { await model.restartScript(active) } }.help("Run the saved command again")
@@ -332,7 +332,7 @@ struct SessionTabs: View {
             }
         }
         .sheet(isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-            VStack(spacing: 20) { Text("Rename terminal tab").font(.headline); TextField("Tab name", text: $tabName); HStack { Button("Cancel") { renaming = nil }; Button("Save") { if let renaming { model.renameTab(renaming.id, name: tabName) }; renaming = nil } } }.padding(30).frame(width: 350)
+            VStack(spacing: 20) { Text("Rename terminal tab").font(.headline); TextField("Tab name", text: $tabName); HStack { Button("Cancel") { renaming = nil }.keyboardShortcut(.cancelAction); Button("Save") { if let renaming { model.renameTab(renaming.id, name: tabName) }; renaming = nil }.keyboardShortcut(.defaultAction) } }.padding(30).frame(width: 350)
         }
         .alert(closingPane == nil ? "Close this tab?" : "Close this split?", isPresented: Binding(get: { model.pendingClose != nil }, set: { if !$0 { model.pendingClose = nil } })) {
             Button("Cancel", role: .cancel) { model.pendingClose = nil }
