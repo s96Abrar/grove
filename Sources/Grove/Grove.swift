@@ -150,6 +150,12 @@ struct SidebarView: View {
                                 }
                         }
                     }
+                    if !search.isEmpty && !model.roots.contains(where: { root in model.visibleTrees(root).contains { $0.branch.localizedCaseInsensitiveContains(search) } }) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("No worktrees match “\(search)”.").font(.caption).foregroundStyle(.secondary)
+                            Button("Clear search") { search = "" }.controlSize(.small)
+                        }
+                    }
                 }
             }
             Spacer(minLength: 0)
@@ -286,12 +292,13 @@ struct ContentView: View {
                 Label("A fresh branch, a focused task.", systemImage: "arrow.triangle.branch").font(.title2)
                 Text("Creates a new branch from the configured base reference in a sibling .grove-worktrees directory. Your current files stay in place.").foregroundStyle(.secondary)
                 TextField("feature/my-next-idea", text: $branch).textFieldStyle(.roundedBorder).accessibilityLabel("New branch name").onSubmit { create() }
+                if let problem = Git.branchNameProblem(branch) { Text(problem).font(.caption).foregroundStyle(.red) }
                 if model.busy { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Creating worktree…").font(.caption).foregroundStyle(.secondary) } }
                 HStack { Spacer(); Button("Cancel") { model.showCreateSheet = false }.keyboardShortcut(.cancelAction)
-                    Button("Create worktree") { create() }.buttonStyle(.borderedProminent).disabled(branch.isEmpty || model.busy) }
+                    Button("Create worktree") { create() }.buttonStyle(.borderedProminent).disabled(branch.isEmpty || Git.branchNameProblem(branch) != nil || model.busy) }
             }.padding(30).frame(width: 460)
         }
-        .alert("Grove needs your attention", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
+        .alert("Grove needs your attention", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(ErrorExplainer.explain(model.error ?? "")) }
         .alert(urlActionTitle, isPresented: Binding(get: { model.pendingURLAction != nil }, set: { if !$0 { model.pendingURLAction = nil; model.restoreFocus() } })) {
             Button("Cancel", role: .cancel) { model.pendingURLAction = nil }
             Button(urlActionConfirm) { let action = model.pendingURLAction; Task { await model.confirmURLAction(action) } }
@@ -316,7 +323,10 @@ struct ContentView: View {
             model.setChangesViewVisible(false, id: changesViewID)
         }
     }
-    private func create() { let name = branch; model.showCreateSheet = false; branch = ""; Task { await model.create(name) } }
+    private func create() {
+        guard !branch.isEmpty, Git.branchNameProblem(branch) == nil, !model.busy else { return }
+        let name = branch; model.showCreateSheet = false; branch = ""; Task { await model.create(name) }
+    }
 }
 
 

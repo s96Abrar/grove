@@ -22,10 +22,10 @@ Run: 2026-11-26 · `ui-states-audit`, static review of `Sources/Grove/*.swift` a
 | ID | Severity | Finding | Fix |
 |---|---|---|---|
 | U-1 | Fixed 2026-11-26 (clone) | Clone has no progress, no cancel and no timeout; a slow or stalled remote leaves Grove silently busy | Show a progress row or sheet with Cancel (terminate the `Process`); same for fetch-before-create |
-| U-2 | Should-fix (Minor) | No "No worktrees match '…'" message for an empty sidebar search | Add a message under the search field with a Clear button |
-| U-3 | Should-fix (Minor) | Branch name and clone URL are validated only after submit, via alert | Validate as you type with inline helper text; reuse the `Git.create` allow-list |
-| U-4 | Should-fix (Minor) | Errors are raw tool output with only OK; offline, permission and `gh` auth cases are not recognised | Map common cases (network unreachable, `Operation not permitted`, `gh auth`) to plain-language text with an action (Retry, Open Privacy Settings, show `gh auth login`); keep the raw text under "Details" |
-| U-5 | Should-fix (Minor) | Copy path/branch have no confirmation | Reuse the transient notice banner ("Copied path") |
-| U-6 | Should-fix (Minor) | Empty folder in the file browser shows a blank list | "This folder is empty" placeholder |
+| U-2 | Fixed 2026-11-26 | No "No worktrees match '…'" message for an empty sidebar search | Add a message under the search field with a Clear button |
+| U-3 | Fixed 2026-11-26 | Branch name and clone URL are validated only after submit, via alert | Validate as you type with inline helper text; reuse the `Git.create` allow-list |
+| U-4 | Fixed 2026-11-26 (text guidance; no Retry/Open Settings buttons) | Errors are raw tool output with only OK; offline, permission and `gh` auth cases are not recognised | Map common cases (network unreachable, `Operation not permitted`, `gh auth`) to plain-language text with an action (Retry, Open Privacy Settings, show `gh auth login`); keep the raw text under "Details" |
+| U-5 | Fixed 2026-11-26 | Copy path/branch have no confirmation | Reuse the transient notice banner ("Copied path") |
+| U-6 | Fixed 2026-11-26 | Empty folder in the file browser shows a blank list | "This folder is empty" placeholder |
 
 No Blockers. U-1 is the only Major finding.

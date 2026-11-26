@@ -181,11 +181,25 @@ import AppKit
     func copyWorktreePath() {
         guard let path = selected?.path else { return }
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path, forType: .string)
+        showNotice("Copied worktree path")
     }
 
     func copyBranchName() {
         guard let branch = selected?.branch else { return }
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(branch, forType: .string)
+        showNotice("Copied branch name “\(branch)”")
+    }
+
+    private var noticeTask: Task<Void, Never>?
+    /// Short confirmation in the notice banner, cleared after a few seconds.
+    func showNotice(_ text: String) {
+        noticeTask?.cancel()
+        transientNotice = text
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, let self, self.transientNotice == text else { return }
+            self.transientNotice = nil
+        }
     }
 
     func jumpToNextAttention() {
@@ -430,7 +444,7 @@ import AppKit
         do {
             let output = try await Task.detached { try Shell.run("gh", ["pr", "view", "--json", "number,title,state,url,mergeable,statusCheckRollup"], at: path) }.value
             guard selected?.path == path else { return }; pullRequest = output
-        } catch { pullRequest = error.localizedDescription }
+        } catch { pullRequest = ErrorExplainer.explain(error.localizedDescription) }
     }
     func create(_ branch: String) async {
         guard let tree = selected, let root = root(for: tree), !isFolder(root) else { error = "Select a Git repository first."; return }
@@ -506,8 +520,17 @@ import AppKit
     @Published private(set) var cloneInProgress: String?
     private var cloneHandle: ProcessHandle?
     func cancelClone() { cloneHandle?.cancel() }
+    /// Why a clone URL is not accepted, or nil when it is (or still empty).
+    nonisolated static func cloneURLProblem(_ url: String) -> String? {
+        if url.isEmpty { return nil }
+        guard url.hasPrefix("https://") || url.hasPrefix("git@") || url.hasPrefix("ssh://") else {
+            return "Use an HTTPS or SSH Git URL (https://…, git@…, ssh://…)."
+        }
+        if url.contains(where: \.isWhitespace) { return "Remove spaces from the URL." }
+        return nil
+    }
     func clone(_ url: String, to parent: URL) async {
-        guard url.hasPrefix("https://") || url.hasPrefix("git@") || url.hasPrefix("ssh://") else { error = "Use an HTTPS or SSH Git URL."; return }
+        if url.isEmpty || Self.cloneURLProblem(url) != nil { error = Self.cloneURLProblem(url) ?? "Enter a Git URL."; return }
         guard cloneInProgress == nil else { error = "A clone is already running. Wait for it or cancel it first."; return }
         let handle = ProcessHandle()
         busy = true; cloneInProgress = url; cloneHandle = handle
@@ -522,7 +545,7 @@ import AppKit
             if handle.isCancelled {
                 // The destination name is unique to this clone, so removing a partial checkout is safe.
                 if FileManager.default.fileExists(atPath: destination.path) { try? FileManager.default.removeItem(at: destination) }
-                transientNotice = "Clone cancelled."
+                showNotice("Clone cancelled.")
             } else { self.error = error.localizedDescription }
         }
     }

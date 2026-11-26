@@ -68,10 +68,22 @@ enum Git {
         _ = try run(["check-ref-format", "--branch", branch], at: path)
         _ = try run(["branch", "-m", "--", branch], at: path)
     }
+    /// Why a new branch name is not accepted, or nil when it is (an empty
+    /// name is "not finished yet", not an error). Shared by the inline
+    /// validation in the UI and by `create`.
+    static func branchNameProblem(_ branch: String) -> String? {
+        if branch.isEmpty { return nil }
+        if branch.count > 100 { return "Use at most 100 characters." }
+        if branch.hasPrefix("-") { return "A branch name cannot start with a hyphen." }
+        if branch.range(of: #"^[A-Za-z0-9][A-Za-z0-9_/-]*$"#, options: .regularExpression) == nil {
+            return "Use letters, numbers, slashes, underscores or hyphens, starting with a letter or number."
+        }
+        if branch.contains("//") || branch.hasSuffix("/") { return "Slashes must separate non-empty parts." }
+        return nil
+    }
     static func create(branch: String, at root: String, baseRef: String = "HEAD") throws -> String {
-        guard !branch.isEmpty, branch.count <= 100, !branch.hasPrefix("-"),
-              branch.range(of: #"^[A-Za-z0-9][A-Za-z0-9_/-]*$"#, options: .regularExpression) != nil else {
-            throw CommandError(message: "Use a branch name with letters, numbers, slashes, underscores or hyphens.")
+        guard !branch.isEmpty, branchNameProblem(branch) == nil else {
+            throw CommandError(message: branchNameProblem(branch) ?? "Enter a branch name.")
         }
         _ = try run(["check-ref-format", "--branch", branch], at: root)
         guard !baseRef.hasPrefix("-"), !baseRef.isEmpty else { throw CommandError(message: "Choose a valid base reference.") }
