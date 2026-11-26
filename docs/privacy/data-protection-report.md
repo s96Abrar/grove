@@ -29,7 +29,7 @@ No analytics, crash reporter, account or network-stored data. UserDefaults is in
 ## §4 Deletion and export
 
 - **Export:** `grove list` prints the saved workspace as JSON (`scripts/grove:22-28`). Adequate.
-- **Delete one repository from the sidebar:** not possible. There is no "Remove from Grove" action; only a full reset removes a root. (P-3)
+- **Delete one repository from the sidebar:** "Remove from Grove…" on the repository's context menu (fixed 2026-11-26, P-3).
 - **Delete everything:** Reset clears `workspace.v2` and its backup but **copies the current workspace into `workspace.v2.unreadable` first** (`WorkspaceState.swift:147-150`), where it stays indefinitely. The confirmation text says "Reset saved repositories, scripts and terminal layouts?" (`Settings.swift:41`), so someone resetting to remove script commands or paths keeps them on disk. (P-1)
 
 ## Findings
@@ -38,7 +38,7 @@ No analytics, crash reporter, account or network-stored data. UserDefaults is in
 |---|---|---|---|
 | P-1 | Fixed 2026-11-26 | Reset keeps a full copy of the workspace (including script commands) in `workspace.v2.unreadable`, with no way to purge it in the app | Keep recovery copies only for corrupt data; for a user-chosen reset, delete all three keys, or offer "Also delete recovery copies". Document `defaults delete local.grove.workspace` as the full wipe |
 | P-2 | Should-fix (low) | `PRIVACY.md` AppStorage list misses 5 stored preferences | Update the list |
-| P-3 | Should-fix | No way to remove a single repository or folder from the workspace | Add "Remove from Grove…" to the repository context menu: removes the root, its tabs and saved state, and ends or detaches its sessions; never touches files |
+| P-3 | Fixed 2026-11-26 | No way to remove a single repository or folder from the workspace | Add "Remove from Grove…" to the repository context menu: removes the root, its tabs and saved state, and ends or detaches its sessions; never touches files |
 | P-4 | Owner decision | Workspace metadata (paths, script commands) is included in system backups | Accept (typical for preferences) or move scripts to Application Support with `isExcludedFromBackup` |
 
 Evidence pack, vendor DPAs and incident plan: n/a for a local-only app with no processors.

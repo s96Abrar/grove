@@ -144,6 +144,10 @@ struct SidebarView: View {
                         } label: {
                             Label(URL(fileURLWithPath: root).lastPathComponent, systemImage: "folder")
                                 .font(.system(size: 13, weight: .semibold))
+                                .contextMenu {
+                                    Button("Reveal in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: root) }
+                                    Button("Remove from Grove…", role: .destructive) { model.requestRemoveRoot(root) }
+                                }
                         }
                     }
                 }
@@ -289,6 +293,12 @@ struct ContentView: View {
             Button("Cancel", role: .cancel) { model.pendingURLAction = nil }
             Button(urlActionConfirm) { let action = model.pendingURLAction; Task { await model.confirmURLAction(action) } }
         } message: { Text(urlActionMessage) }
+        .alert("Remove “\(model.pendingRootRemoval.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "")” from Grove?", isPresented: Binding(get: { model.pendingRootRemoval != nil }, set: { if !$0 { model.pendingRootRemoval = nil; model.restoreFocus() } })) {
+            Button("Cancel", role: .cancel) { model.pendingRootRemoval = nil }
+            Button("Remove from Grove", role: .destructive) { let root = model.pendingRootRemoval; Task { if let root { await model.removeRoot(root) } } }
+        } message: {
+            Text("Its worktrees leave the sidebar, their terminal sessions end (stopping any running programs), and scripts saved only for it are removed. Files, branches and Git worktrees on disk are not touched.")
+        }
         .onChange(of: model.error) { _, newValue in
             if newValue == nil { model.restoreFocus() }
         }
