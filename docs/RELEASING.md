@@ -60,7 +60,7 @@ python3 scripts/release.py --mode tagged --tag v0.3.0
 
 ## Prepared CI/CD
 
-- `.github/workflows/ci.yml`: native Apple Silicon and Intel macOS 26 runners, Xcode 26.6, application checks, workflow lint and local developer artifacts.
+- `.github/workflows/ci.yml`: native Apple Silicon macOS 26 runner, Xcode 26.6, application checks, workflow lint and local developer artifacts. The Intel runner was removed by user decision (2026-11-26); the x86_64 slice is still compiled and verified for tagged releases but is not executed in CI.
 - `.github/workflows/release.yml`: tag push → reusable quality matrix → universal ad-hoc build → bundle/archive validation → GitHub Release containing ZIP, checksums and manifest.
 
 Official actions are pinned to immutable commits. Checkout credential persistence is disabled. Quality jobs have read-only content permission; only publication gets content-write permission. The future release job uses the repository's built-in GitHub token, not Apple secrets. The `release` GitHub Environment may be configured with reviewers to control publication.

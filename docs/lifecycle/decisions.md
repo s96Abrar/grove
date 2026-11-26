@@ -11,6 +11,7 @@ Recorded 2026-11-26 for the first `app-lifecycle-orchestrator` run (Workflow B, 
 | Pinning | n/a, no first-party host | `docs/security/secure-comm-report.md` |
 | Optimistic launch | Already the behavior: saved state renders first, Git refresh follows | `docs/performance/launch-audit.md` |
 | Spend caps | n/a, no paid services | — |
+| CI architectures | Apple Silicon runner only (Intel runner removed 2026-11-26). Releases still build and verify both slices; Intel runtime is untested | User decision |
 
 ## Skills not run
 

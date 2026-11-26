@@ -36,7 +36,7 @@ make lint    # validates GitHub workflow files
 git diff --check
 ```
 
-`make check` needs a logged-in graphical session. Checks use temporary repositories and their own tmux sessions; they do not touch your real workspaces. CI runs the same checks on Apple Silicon and Intel runners for every pull request.
+`make check` needs a logged-in graphical session. Checks use temporary repositories and their own tmux sessions; they do not touch your real workspaces. CI runs the same checks on an Apple Silicon runner for every pull request. Intel builds are compiled for releases but not run in CI, so mention it if you can test on an Intel Mac.
 
 Add or update a test in `Tests/GroveTests` or `Checks/` for any behavior change you can exercise outside the UI. See [Testing](docs/TESTING.md) for acceptance scenarios.
 
