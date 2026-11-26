@@ -13,6 +13,7 @@ Grove is a native macOS coding workspace being expanded toward Supacode-like wor
 | [REA findings](REA-FINDINGS.md) | Retained packaged-app metadata/architecture Evidence and its limits. |
 | [Supacode investigation](SUPACODE-EVIDENCE.md) | Pinned source evidence and the original investigation’s boundaries. |
 | [Privacy](PRIVACY.md) | Local storage, no-telemetry policy, and user-initiated external calls. |
+| [Lifecycle status](lifecycle/status.md) | Health-check gate: security, data protection, UI states and launch findings, with [decisions](lifecycle/decisions.md). |
 | [Development and operations](DEVELOPMENT.md) | Build, local packaging, storage, troubleshooting and release requirements. |
 | [REA setup output](rea-setup.txt) | Recorded result of the approved Codex registration setup. |
 
