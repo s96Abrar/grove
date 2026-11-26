@@ -1,5 +1,7 @@
 # Building and releasing Grove
 
+This is the release *process*. For what ships next and the step-by-step checklist, see the [release plan](RELEASE-PLAN.md).
+
 ## Accepted distribution policy
 
 **User decision: skip Apple signing and notarization.** Grove intentionally distributes ad-hoc-signed, non-notarized builds. Apple Developer ID certificates, Apple credentials, notary submission, stapling and Apple trust assessment are outside the current release scope. Their absence is accepted policy, not a bug, incomplete task, missing prerequisite or reason to repeatedly flag production readiness. See [AGENTS.md](../AGENTS.md) for agent guidance. Revisit this policy only on an explicit user request.

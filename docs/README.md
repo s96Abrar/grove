@@ -5,6 +5,7 @@ Grove is a native macOS coding workspace being expanded toward Supacode-like wor
 | Document | Purpose |
 |---|---|
 | [Release policy](RELEASING.md) | Local builds, tag-only CI/CD, accepted ad-hoc policy and current validation boundaries. |
+| [Release plan](RELEASE-PLAN.md) | What ships next, release criteria, step-by-step tagging and the candidates after it. |
 | [User guide](USER-GUIDE.md) | Use the current independent app and understand its limits. |
 | [Feature coverage](FEATURE-PARITY.md) | Upstream behavior inventory, current Grove implementation and acceptance targets. |
 | [Architecture](ARCHITECTURE.md) | Existing implementation and target design responsibilities. |

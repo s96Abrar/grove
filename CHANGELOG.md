@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Release plan: `docs/RELEASE-PLAN.md` covers the first tagged release, its criteria and checklist, versioning and next candidates.
 - Performance measurement: `scripts/perf.py` (`make perf`) reports launch-to-terminal time, idle memory and CPU, and bundle size; CI shows the numbers in each run summary. README gains status and project badges.
 - UI states: "no worktrees match" message with Clear search; branch names and clone URLs are validated as you type; common network, SSH, credential, GitHub CLI and macOS privacy errors are explained in plain language with the raw output kept as details; copying a path or branch name confirms with a notice; empty folders in the file browser say so.
 - Clone shows a progress banner with Cancel, removes a partial checkout when cancelled, and gives up on an HTTP transfer that stalls below 1 KB/s for a minute.
