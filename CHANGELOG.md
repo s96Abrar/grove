@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- CI: SwiftPM build products are cached between runs, and a hung run now times out after 25 minutes instead of 45.
 - Security: `grove://` links (and the `grove` CLI) now ask before adding a new folder or creating a worktree, and the file browser asks before opening scripts, launchers, installers or executables.
 - CI: quality checks run on the Apple Silicon runner only; tagged releases still build and verify the universal (arm64 + x86_64) app.
 - Community files: contributing guide, Contributor Covenant 2.1 code of conduct, security policy with private vulnerability reporting, support page, bug/feature issue forms and a pull request template.

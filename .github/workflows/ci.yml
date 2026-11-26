@@ -19,7 +19,8 @@ jobs:
         # slice (scripts/release.py, scripts/verify_app.py); it is not executed in CI.
         os: [macos-26]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # A normal run takes ~8 minutes; fail a hung run quickly instead of after 45.
+    timeout-minutes: 25
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GROVE_RUN_GUI_CHECKS: '1'
@@ -35,6 +36,19 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+      # SwiftPM build products (mostly SwiftTerm) take ~5 of the ~8 minutes.
+      # Keyed on toolchain + pinned dependencies; sources only pick the newest
+      # entry, and SwiftPM rebuilds whatever changed. Tagged release artifacts
+      # are still built from scratch in release.yml's own job.
+      - name: Restore SwiftPM build cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            .build/review-tests
+            .build/release-arm64
+          key: swiftpm-${{ matrix.os }}-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-${{ hashFiles('Sources/**', 'Tests/**', 'Resources/**') }}
+          restore-keys: |
+            swiftpm-${{ matrix.os }}-${{ env.DEVELOPER_DIR }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
       - name: Check, package and exercise actual app
         run: bash scripts/check.sh
       - name: Create local delivery archive
