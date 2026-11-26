@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an improvement or new feature.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [feature matrix](https://github.com/s96Abrar/grove/blob/main/docs/FEATURE-PARITY.md) first; many planned items are already tracked there.
+        Grove will not add telemetry, accounts or license activation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe your workflow and where Grove gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered

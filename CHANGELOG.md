@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Community files: contributing guide, Contributor Covenant 2.1 code of conduct, security policy with private vulnerability reporting, support page, bug/feature issue forms and a pull request template.
 - Terminal font guard: SwiftUI update passes no longer re-assign the terminal font on every state publish, avoiding SwiftTerm FontSet rebuilds, cell-metric recomputes, selection clears and full re-renders for every open terminal.
 - Multi-window Changes tracking: each window's Changes pane registers its own visibility, so closing the pane in one window no longer stops diff updates in another.
 - Triage status publication: worktree triage icons and sorting refresh as soon as stable agent/busy statuses change, instead of relying on unrelated poll publishes.
