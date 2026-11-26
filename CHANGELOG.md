@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-11-27
 
 - Launch: Settings no longer opens every installed font to find the monospaced ones each time its view is created. It asks macOS for fixed-pitch font names once, on first use. Measured on an M3 Pro (10 runs): launch to interactive terminal 820 → 616 ms, idle memory (RSS) 255 → 120 MB.
 - Release plan: `docs/RELEASE-PLAN.md` covers the first tagged release, its criteria and checklist, versioning and next candidates.
@@ -24,9 +24,6 @@
 - Sidebar owns its search state: sidebar search keystrokes no longer re-evaluate the whole content view and every terminal pane's NSViewRepresentable update pass.
 - Poll invalidation guards: worktree lists, status, diff and diff-stats are published only when their values actually change, so idle poll ticks no longer re-render every observing view.
 - Terminal font glyph fallback: Nerd Font/Powerline prompt icons render from an installed patched font when the selected terminal font lacks them.
-
-## 0.3.0 — release preparation
-
 - Original Grove app icon with full macOS icon sizes and source artwork.
 - Versioned, staged app packaging with build provenance, license notices and hardened runtime.
 - Workspace-state validation, legacy migration, last-good backup recovery and preservation of unreadable data.
@@ -37,7 +34,7 @@
 - Local delivery ZIPs with checksums and round-trip validation.
 - Tag-only ad-hoc release pipeline, prepared native-architecture CI and local Git history.
 
-Apple signing/notarization are intentionally excluded by user policy. Hosted CI and publication have not run; no remote exists. See docs/RELEASING.md for prerequisites and remaining validation.
+Apple signing/notarization are intentionally excluded by user policy: the build is ad-hoc signed and not notarized. See docs/RELEASING.md for prerequisites and remaining validation.
 
 ## 0.2.0
 
