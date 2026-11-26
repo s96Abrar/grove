@@ -17,7 +17,10 @@ Run: 2026-11-26 · `vibe-app-security-check`, partial (only the checks that appl
 
 ## Findings
 
-### S-1 · Should-fix (high) · `grove://` URLs act without confirmation
+### S-1 · Fixed 2026-11-26 · `grove://` URLs act without confirmation
+
+**Status:** `open` for a folder not already in the workspace, and `new-worktree`, now wait for a confirmation alert naming the folder or branch (`Workspace.handleURL` / `confirmURLAction`). Selecting a known worktree, `new-tab` and `split` stay unprompted. Covered by `testURLActionsWaitForConfirmation`.
+
 `Workspace.swift:483-507` handles `grove://open?path=…`, `grove://new-worktree?branch=…`, `new-tab` and `split` directly. The scheme is registered for every user (`scripts/package_app.py:52`). Any web page, chat link or document can trigger it after the browser's own "Open Grove?" prompt, if the browser shows one.
 
 - `open` adds an arbitrary directory as a repository, selects it, and runs `git status` / `git diff` in it (`Workspace.swift:108-121, 413-415`). That reads the directory's own `.git/config`, so a repository with `core.fsmonitor` set runs its command (see S-2).
@@ -30,7 +33,10 @@ The background polls (`Workspace.swift:265, 267, 413-415`, every 5 s or 15 s) ru
 
 **Options:** (a) pass `-c core.fsmonitor=false` (and `--no-ext-diff --no-textconv` on diffs) to the read-only poll commands. This only costs fsmonitor speed-ups. (b) Ask "Trust this repository?" when one is added. (c) Accept and document it in `docs/PRIVACY.md` and `SECURITY.md`. Worktree-creation hooks stay intentional (`Git.swift:102`).
 
-### S-3 · Should-fix · Single click in the file browser opens any file with Launch Services
+### S-3 · Fixed 2026-11-26 · Single click in the file browser opens any file with Launch Services
+
+**Status:** ordinary documents still open on one click; scripts, launchers, installers, bundles and executable files ask first, offering Open, Reveal in Finder or Cancel (`FileBrowser.mayRunCode`). Covered by `testFileBrowserFlagsCodeButNotDocuments`. Double-click-to-open was not adopted, to keep keyboard and VoiceOver activation unchanged.
+
 `FileBrowser.swift:20` calls `NSWorkspace.shared.open(file)` on one click. In a cloned repository that includes `.command`, `.app`, `.terminal` and `.webloc` files. Git checkouts carry no quarantine attribute, so Gatekeeper does not prompt. One click on `run.command` runs it in Terminal.
 
 **Fix:** open on double-click (as Finder does), and for executable types or bundles ask first or use "Reveal in Finder".

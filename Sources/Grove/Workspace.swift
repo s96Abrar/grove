@@ -480,29 +480,59 @@ import AppKit
             await add(destination.path)
         } catch { self.error = error.localizedDescription }
     }
-    func handle(_ url: URL) {
+    /// A `grove://` action that changes the workspace or runs repository code.
+    /// Any web page, document or app can open a `grove://` URL, so these wait
+    /// for explicit confirmation instead of running directly.
+    enum PendingURLAction: Equatable {
+        case open(path: String)
+        case newWorktree(branch: String, worktreePath: String)
+    }
+    @Published var pendingURLAction: PendingURLAction?
+
+    func handle(_ url: URL) { Task { await handleURL(url) } }
+    func handleURL(_ url: URL) async {
         guard url.scheme == "grove", let parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
         let values = Dictionary((parts.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { _, last in last })
-        Task {
-            await reload()
-            while refreshing {
-                do { try await Task.sleep(for: .milliseconds(25)) } catch { return }
-            }
-            if url.host != "open", let path = values["path"] {
-                guard let tree = trees.values.flatMap({ $0 }).first(where: { $0.path == path }) else { error = "That worktree is not in this workspace."; return }
-                select(tree)
-            }
-            switch url.host {
-            case "open": if let path = values["path"] { await add(path) }
-            case "new-tab": addTab()
-            case "split": if let path = selected?.path {
-                let tabs = saved.tabs[path] ?? []
-                if let tab = tabs.first(where: { $0.id == saved.activeTabs?[path] }) ?? tabs.last { split(tab: tab.id, vertical: values["direction"] == "vertical") }
-            }
-            case "new-worktree": if let branch = values["branch"] { await create(branch) }
-            case "select": break
-            default: error = "Unknown Grove URL action."
-            }
+        await reload()
+        while refreshing {
+            do { try await Task.sleep(for: .milliseconds(25)) } catch { return }
+        }
+        if url.host != "open", let path = values["path"] {
+            guard let tree = trees.values.flatMap({ $0 }).first(where: { $0.path == path }) else { error = "That worktree is not in this workspace."; return }
+            select(tree)
+        }
+        switch url.host {
+        case "open":
+            guard let path = values["path"] else { return }
+            let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+            let candidates: Set<String> = [path, standardized]
+            if let known = trees.values.flatMap({ $0 }).first(where: { candidates.contains($0.path) }) { select(known) }
+            else if let root = roots.first(where: { candidates.contains($0) }) { await add(root) }
+            else { snapshotFocus(); pendingURLAction = .open(path: standardized) }
+        case "new-tab": addTab()
+        case "split": if let path = selected?.path {
+            let tabs = saved.tabs[path] ?? []
+            if let tab = tabs.first(where: { $0.id == saved.activeTabs?[path] }) ?? tabs.last { split(tab: tab.id, vertical: values["direction"] == "vertical") }
+        }
+        case "new-worktree":
+            guard let branch = values["branch"], let path = selected?.path else { return }
+            snapshotFocus(); pendingURLAction = .newWorktree(branch: branch, worktreePath: path)
+        case "select": break
+        default: error = "Unknown Grove URL action."
+        }
+    }
+    /// Takes the action captured when the user confirmed: dismissing the alert
+    /// clears `pendingURLAction` before this async work runs.
+    func confirmURLAction(_ action: PendingURLAction?) async {
+        guard let action else { return }
+        pendingURLAction = nil
+        switch action {
+        case .open(let path): await add(path)
+        case .newWorktree(let branch, let path):
+            // The workspace may have changed while the confirmation was shown.
+            guard let tree = trees.values.flatMap({ $0 }).first(where: { $0.path == path }) else { error = "That worktree is no longer in this workspace."; return }
+            select(tree)
+            await create(branch)
         }
     }
     func resetWorkspaceMetadata() {

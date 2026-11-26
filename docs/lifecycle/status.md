@@ -4,7 +4,7 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 | Area | Skill | Last run | Blockers | Should-fix | Open / UNVERIFIED | Report |
 |------|-------|----------|----------|------------|-------------------|--------|
 | Positioning | pre-launch-icp-research | — | n/a | — | Skipped (see decisions) | — |
-| Ship check (10) | vibe-app-security-check | 2026-11-26 | 0 | 3 (S-1, S-3, S-4) | #10 UNVERIFIED; S-2 owner decision | [ship-check.md](../security/ship-check.md) |
+| Ship check (10) | vibe-app-security-check | 2026-11-26 | 0 | 1 open (S-4); S-1, S-3 fixed | #10 UNVERIFIED; S-2 owner decision | [ship-check.md](../security/ship-check.md) |
 | Transport, identity, device storage | secure-app-server-comm | 2026-11-26 | 0 | 0 | — | [secure-comm-report.md](../security/secure-comm-report.md) |
 | DAST + authz matrix + CI | security-self-test | — | n/a | 1 (CI proposal below) | No server: phases 0-2 n/a | — |
 | Data, vendors, rights, evidence | launch-data-protection-audit | 2026-11-26 | 0 | 3 (P-1, P-2, P-3) | P-4 owner decision | [data-protection-report.md](../privacy/data-protection-report.md) |
@@ -16,8 +16,8 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 **Ready under the accepted release policy, with Should-fix items.** No Blockers. vibe #1-4 are settled (n/a or PASS). The authz matrix and interception test are n/a because there is no server. The ad-hoc/non-notarized distribution is accepted policy (`AGENTS.md`) and is not counted.
 
 ## Recommended fix order
-1. **S-1** confirm `grove://` actions that add a repository or create a worktree
-2. **S-3** file browser: double-click to open; confirm executables and bundles
+1. ~~**S-1** confirm `grove://` actions~~ fixed 2026-11-26
+2. ~~**S-3** confirm before opening code from the file browser~~ fixed 2026-11-26
 3. **S-2** owner decision on repository-configured programs in background Git polls
 4. **P-1** make Reset actually delete (or offer to), **P-3** "Remove from Grove…" for one repository
 5. **S-4** Dependabot (CI proposal below)

@@ -179,6 +179,26 @@ struct ContentView: View {
         AppTheme.resolved(tier: profile.effectiveTier, animationsEnabled: profile.animationsEnabled,
                           scheme: colorScheme, reduceTransparency: reduceTransparency, reduceMotion: reduceMotion)
     }
+    private var urlActionTitle: String {
+        switch model.pendingURLAction {
+        case .open(let path): return "Add “\(URL(fileURLWithPath: path).lastPathComponent)” to Grove?"
+        case .newWorktree(let branch, _): return "Create worktree “\(branch)”?"
+        case nil: return ""
+        }
+    }
+    private var urlActionConfirm: String {
+        if case .newWorktree = model.pendingURLAction { return "Create Worktree" }
+        return "Add Folder"
+    }
+    private var urlActionMessage: String {
+        switch model.pendingURLAction {
+        case .open(let path):
+            return "A link or the grove command asked to add \(path). Grove runs Git in added folders, and a repository can configure programs that Git runs. Only continue if you trust this folder."
+        case .newWorktree(_, let path):
+            return "A link or the grove command asked to create a worktree from \(path). Creating a worktree runs the repository's Git hooks. Only continue if you expected this."
+        case nil: return ""
+        }
+    }
     var body: some View {
         HStack(spacing: 0) {
             SidebarView(renamedBranch: $renamedBranch)
@@ -265,6 +285,10 @@ struct ContentView: View {
             }.padding(30).frame(width: 460)
         }
         .alert("Grove needs your attention", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
+        .alert(urlActionTitle, isPresented: Binding(get: { model.pendingURLAction != nil }, set: { if !$0 { model.pendingURLAction = nil; model.restoreFocus() } })) {
+            Button("Cancel", role: .cancel) { model.pendingURLAction = nil }
+            Button(urlActionConfirm) { let action = model.pendingURLAction; Task { await model.confirmURLAction(action) } }
+        } message: { Text(urlActionMessage) }
         .onChange(of: model.error) { _, newValue in
             if newValue == nil { model.restoreFocus() }
         }
