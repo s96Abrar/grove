@@ -8,7 +8,7 @@ Last updated: 2026-11-26.
 
 | Item | State |
 |---|---|
-| Version in `release.json` | `0.3.0`, build `3` |
+| Version in `release.json` | `0.3.0`, build `4` |
 | Tags / GitHub releases | None yet. 0.3.0 was prepared but never tagged or published. |
 | `CHANGELOG.md` | A "0.3.0 — release preparation" section plus a long **Unreleased** list (performance, security, privacy and UI-state fixes since then). |
 | CI on `main` | Quality checks (macOS build, tests, packaging, GUI relaunch) plus security checks (OSV vulnerability scan, gitleaks, Dependabot). |

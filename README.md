@@ -31,7 +31,7 @@ make package                         # host-architecture local-only ZIP
 GROVE_ARCHS="arm64 x86_64" make package  # universal local-only ZIP
 ```
 
-The accepted release policy intentionally uses ad-hoc signatures and skips Apple signing/notarization. Tagged-only releases still require clean source, universal binaries, bundle/archive validation and checksums. Apple credentials are not a release prerequisite or outstanding issue. No remote is configured and no hosted CI/release has run. [Release policy](docs/RELEASING.md) · [Agent instructions](AGENTS.md).
+The accepted release policy intentionally uses ad-hoc signatures and skips Apple signing/notarization. Tagged-only releases still require clean source, universal binaries, bundle/archive validation and checksums. Apple credentials are not a release prerequisite or outstanding issue. Releases are built and published as GitHub Releases by the release workflow when a version tag is pushed. [Release policy](docs/RELEASING.md) · [Agent instructions](AGENTS.md).
 
 ## Performance
 

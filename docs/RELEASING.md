@@ -12,7 +12,7 @@ Ad-hoc signing remains for executable/bundle integrity and hardened runtime; it 
 
 Releases are **tagged only**, with no scheduled release or automatic version bump. Normal CI checks run on main pushes, pull requests or an explicit manual run. The release workflow runs only on a pushed `vMAJOR.MINOR.PATCH` tag and rejects a version mismatch or dirty checkout.
 
-Git tracking is local. No remote, hosted workflow run, uploaded artifact or published release has been created. The workflow files are ready for a future GitHub remote; no Apple secrets or signing environment setup are required.
+The repository is hosted on GitHub (`s96Abrar/grove`). CI runs there on pushes to `main` and on pull requests, and the release workflow publishes GitHub Releases from version tags. No Apple secrets or signing environment setup are required.
 
 `release.json` is the single version/build/bundle-identifier/minimum-OS source. Increase the build number when preparing a release. Grove's own source is MIT-licensed; dependency notices are embedded. Runtime telemetry and activation remain excluded.
 
@@ -65,16 +65,16 @@ python3 scripts/release.py --mode tagged --tag v0.3.0
 - `.github/workflows/ci.yml`: native Apple Silicon macOS 26 runner, Xcode 26.6, application checks, workflow lint and local developer artifacts. The Intel runner was removed by user decision (2026-11-26); the x86_64 slice is still compiled and verified for tagged releases but is not executed in CI. CI restores SwiftPM build products (`.build/review-tests`, `.build/release-arm64`) from an Actions cache keyed on the Xcode path and `Package.swift`/`Package.resolved`; the release job builds from a clean checkout without it.
 - `.github/workflows/release.yml`: tag push → reusable quality matrix → universal ad-hoc build → bundle/archive validation → GitHub Release containing ZIP, checksums and manifest.
 
-Official actions are pinned to immutable commits. Checkout credential persistence is disabled. Quality jobs have read-only content permission; only publication gets content-write permission. The future release job uses the repository's built-in GitHub token, not Apple secrets. The `release` GitHub Environment may be configured with reviewers to control publication.
+Official actions are pinned to immutable commits. Checkout credential persistence is disabled. Quality jobs have read-only content permission; only publication gets content-write permission. The release job uses the repository's built-in GitHub token, not Apple secrets. The `release` GitHub Environment may be configured with reviewers to control publication.
 
-When the user explicitly chooses to add a remote and publish, a matching reviewed tag can trigger the pipeline:
+To publish, push a matching reviewed tag from an up-to-date `main`:
 
 ```sh
 git tag -a v0.3.0 -m "Grove 0.3.0"
 git push origin v0.3.0
 ```
 
-These are future operator instructions, not actions already taken. Published tags/releases should remain immutable. Hosted CI cannot be described as executed before a remote run has occurred.
+Published tags/releases should remain immutable; fix a mistake with a new patch release.
 
 ## Remaining validation boundaries
 
