@@ -51,8 +51,8 @@ Last updated 2026-11-26. Swift was not built for these changes (Linux container 
 | Findings 1–8 | Done | Committed in `fa96dfe`. |
 | Placeholder-only text fields | Done | Added `.accessibilityLabel` to "Find a worktree…" (Search worktrees), command palette query (Search commands), palette "New branch name", clone URL (Git repository URL), create sheet branch field (New branch name), rename-branch and rename-tab fields, and "Script name". The visible look is unchanged. "New worktree base ref" sits in a Settings `Form`, which already shows its title as a label. |
 | Icon picker shows raw SF Symbol names | Done | `ScriptRecord.iconName(_:)` maps each symbol to a readable name matching the presets (Run, Test, Lint, Format, Deploy…). Unknown symbols from imported scripts fall back to the raw name. |
-| `DiffView.swift` review | Partly done | Grep shows the layout picker, file headers and diff rows already have accessibility labels. A full read of the file is still pending. |
-| Fixed Settings window frame (660×640) | Open — product decision | Not changed. |
+| `DiffView.swift` review | Done | Full read. Labels were already in place. Fixed: line-number gutters now use a smaller monospaced, secondary style instead of inheriting the 13pt primary text; deleted-line prefixes use ASCII `-` so copied lines are valid diff text (the header count keeps `−`); file headers gained a Show/Hide changes tooltip and accessibility hint. |
+| Fixed Settings window frame (660×640) | Done | 660×640 is now the minimum and ideal size; the Settings scene uses `.windowResizability(.contentMinSize)` so the window can grow when content needs it. |
 | Dynamic Type / fixed sidebar fonts | Won't fix | Deliberate density choice on macOS. |
 | Help tab "⌘K or ⇧⌘P" wording | Won't fix | Consistent with the menu bar. |
 | Visual confirmation of findings 1 and 4 | Open | Needs a launch of the app on macOS. |

@@ -37,7 +37,7 @@ struct SettingsView: View {
             }.padding(24).frame(maxWidth: .infinity, alignment: .leading).tabItem { Label("General", systemImage: "gear") }
             ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
             ShortcutsHelpView().tabItem { Label("Help", systemImage: "questionmark.circle") }
-        }.frame(width: 660, height: 640)
+        }.frame(minWidth: 660, idealWidth: 660, maxWidth: .infinity, minHeight: 640, idealHeight: 640, maxHeight: .infinity)
         .confirmationDialog("Reset saved repositories, scripts and terminal layouts? Your source files and Git worktrees are kept. Existing persistent sessions are detached.", isPresented: $resetting) {
             Button("Reset Workspace Metadata", role: .destructive) { model.resetWorkspaceMetadata() }
         }
