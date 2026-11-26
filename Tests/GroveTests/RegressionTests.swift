@@ -293,6 +293,28 @@ final class RegressionTests: XCTestCase {
         XCTAssertTrue(try Git.list(at: root).contains { $0.branch == "from-link" })
     }
 
+    /// "Remove from Grove" forgets one repository's metadata and sessions but
+    /// never touches files, branches or worktrees on disk.
+    @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {
+        let (model, tree, _) = try fixture()
+        let root = model.roots[0]
+        let pane = model.saved.tabs[tree.path]![0].panes[0]
+        _ = model.session(pane)
+        model.saved.pinned = [tree.path]
+        model.saved.scripts = [ScriptRecord(name: "Repo", command: "true", root: root), ScriptRecord(name: "Global", command: "true")]
+        model.saved.roots.append("/tmp/grove-other-root")
+        await model.removeRoot(root)
+        XCTAssertEqual(model.roots, ["/tmp/grove-other-root"])
+        XCTAssertNil(model.saved.tabs[tree.path])
+        XCTAssertNil(model.sessions[pane.id])
+        XCTAssertTrue(model.saved.pinned.isEmpty)
+        XCTAssertEqual(model.saved.scripts.map(\.name), ["Global"])
+        XCTAssertNil(model.trees[root])
+        XCTAssertNotEqual(model.selected?.path, tree.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tree.path))
+        XCTAssertTrue(try Git.list(at: root).contains { $0.path == tree.path })
+    }
+
     /// Files checked out with Git have no quarantine, so the file browser must
     /// ask before opening anything that can run code.
     func testFileBrowserFlagsCodeButNotDocuments() throws {

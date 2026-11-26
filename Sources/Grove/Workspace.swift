@@ -467,6 +467,37 @@ import AppKit
             self.error = error.localizedDescription
         }
     }
+    /// Repository or folder awaiting "Remove from Grove" confirmation.
+    @Published var pendingRootRemoval: String?
+    func requestRemoveRoot(_ root: String) { snapshotFocus(); pendingRootRemoval = root }
+    /// Forget a repository or folder: end its panes' sessions, then drop its
+    /// roots, tabs, pins, archives and repository-scoped scripts. Never touches
+    /// files, branches or Git worktrees on disk.
+    func removeRoot(_ root: String) async {
+        guard saved.roots.contains(root) else { return }
+        let paths = Set([root] + (trees[root] ?? []).map(\.path))
+        guard paths.allSatisfy({ !removingWorktrees.contains($0) }),
+              !paths.flatMap({ saved.tabs[$0] ?? [] }).contains(where: { closingPaneTabs.contains($0.id) }) else {
+            error = "Wait for this repository's current terminal or worktree operation to finish."; return
+        }
+        removingWorktrees.formUnion(paths); defer { removingWorktrees.subtract(paths) }
+        let panes = paths.flatMap { saved.tabs[$0] ?? [] }.flatMap(\.panes)
+        do { for pane in panes { try await endSession(pane.id) } }
+        catch { self.error = "Could not end this repository's terminal sessions: \(error.localizedDescription)"; return }
+        for pane in panes { sessions.removeValue(forKey: pane.id) }
+        saved.roots.removeAll { $0 == root }
+        saved.collapsedRoots?.remove(root)
+        saved.scripts.removeAll { $0.root == root }
+        for path in paths {
+            saved.tabs.removeValue(forKey: path); saved.activeTabs?.removeValue(forKey: path)
+            saved.pinned.remove(path); saved.archived.remove(path)
+        }
+        if let current = selected?.path, paths.contains(current) { selected = nil; saved.selected = nil; status = ""; diff = ""; pullRequest = "" }
+        trees.removeValue(forKey: root)
+        diffStats = diffStats.filter { !paths.contains($0.key) }
+        save()
+        await reload()
+    }
     func rename(_ tree: Worktree, branch: String) async {
         do { try await Task.detached { try Git.rename(branch, at: tree.path) }.value; await reload(); if let changed = trees.values.flatMap({ $0 }).first(where: { $0.path == tree.path }) { select(changed) } }
         catch { self.error = error.localizedDescription }

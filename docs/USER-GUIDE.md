@@ -18,6 +18,8 @@ Select a Git worktree, then press Command-N or select **New worktree**. Enter a 
 
 Control-1 through Control-9 jump to visible indexed worktrees. Right-click a sidebar row to pin/unpin or archive/unarchive it. Pinned rows sort first. Archived rows are hidden until **Show archived** is enabled. Archive changes workspace visibility; it does not delete files or Git refs. The context menu also offers **Rename branch…** and **Remove worktree…**. Removal requires confirmation, rejects the main checkout and worktrees with tracked or untracked uncommitted files, and keeps the Git branch. It removes the checkout and its saved tab/pin/archive metadata. Eligibility is checked before stopping sessions; successful worktree removal ends only its owned sessions and then deletes the checkout. A failure keeps terminal metadata and cached session identity, so startup scripts are not replayed by a redraw. Branch-deletion, lifecycle hooks and automatic expiration remain unimplemented.
 
+Right-click a repository or folder name for **Reveal in Finder** and **Remove from Grove…**. After confirmation, Grove ends the terminal sessions of that repository's worktrees and forgets its tabs, pins, archives and repository-only scripts. Files, branches and Git worktrees on disk are not touched; add the folder again to bring it back.
+
 ## Work in embedded terminals
 
 Each tab contains one or more SwiftTerm-backed PTY panes. Type shell commands or start an installed coding agent such as `codex` or `claude` directly inside Grove. Commands have interactive stdin, terminal control sequences and resize support. They run with your user permissions; Grove does not install agents or authenticate them for you.

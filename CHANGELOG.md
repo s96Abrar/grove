@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Repositories and folders can be removed from Grove individually (right-click → Remove from Grove…); files, branches and worktrees on disk are kept.
 - Privacy: Reset Workspace Metadata now deletes the workspace and its backup instead of keeping a full copy, and can also delete the recovery copy of earlier unreadable metadata.
 - CI: SwiftPM build products are cached between runs, and a hung run now times out after 25 minutes instead of 45.
 - Security: `grove://` links (and the `grove` CLI) now ask before adding a new folder or creating a worktree, and the file browser asks before opening scripts, launchers, installers or executables.
