@@ -38,8 +38,15 @@ struct SettingsView: View {
             ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
             ShortcutsHelpView().tabItem { Label("Help", systemImage: "questionmark.circle") }
         }.frame(minWidth: 660, idealWidth: 660, maxWidth: .infinity, minHeight: 640, idealHeight: 640, maxHeight: .infinity)
-        .confirmationDialog("Reset saved repositories, scripts and terminal layouts? Your source files and Git worktrees are kept. Existing persistent sessions are detached.", isPresented: $resetting) {
+        .confirmationDialog("Reset saved repositories, scripts and terminal layouts?", isPresented: $resetting) {
             Button("Reset Workspace Metadata", role: .destructive) { model.resetWorkspaceMetadata() }
+            if WorkspacePersistence.hasRecoveryCopy() {
+                Button("Reset and Delete Recovery Copy", role: .destructive) { model.resetWorkspaceMetadata(deleteRecoveryCopy: true) }
+            }
+        } message: {
+            Text(WorkspacePersistence.hasRecoveryCopy()
+                 ? "Saved metadata and its backup are deleted. Your source files and Git worktrees are kept, and persistent sessions are detached. A recovery copy of earlier unreadable metadata also exists; delete it too if you no longer need it."
+                 : "Saved metadata and its backup are deleted. Your source files and Git worktrees are kept, and persistent sessions are detached.")
         }
     }
 }

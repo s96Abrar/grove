@@ -535,10 +535,10 @@ import AppKit
             await create(branch)
         }
     }
-    func resetWorkspaceMetadata() {
+    func resetWorkspaceMetadata(deleteRecoveryCopy: Bool = false) {
         for session in sessions.values { session.detach() }
         sessions.removeAll(); saved = SavedWorkspace(); selected = nil; trees = [:]
-        WorkspacePersistence.reset(); workspaceStorageBlocked = false; save()
+        WorkspacePersistence.reset(deleteRecoveryCopy: deleteRecoveryCopy); workspaceStorageBlocked = false; save()
     }
     func endSession(_ id: UUID) async throws {
         let name = "grove-" + id.uuidString

@@ -144,9 +144,15 @@ enum WorkspacePersistence {
         if let previous = defaults.data(forKey: currentKey), (try? decode(previous)) != nil { defaults.set(previous, forKey: backupKey) }
         defaults.set(data, forKey: currentKey)
     }
-    static func reset(in defaults: UserDefaults = .standard) {
-        if let current = defaults.data(forKey: currentKey) { defaults.set(current, forKey: unreadableKey) }
+    /// A copy of metadata that could not be read, kept by `load` for recovery.
+    static func hasRecoveryCopy(in defaults: UserDefaults = .standard) -> Bool { defaults.data(forKey: unreadableKey) != nil }
+    /// A user-chosen reset deletes the workspace and its backup. It no longer
+    /// copies readable metadata into the recovery key: someone resetting to
+    /// remove saved paths or script commands expects them gone. A recovery copy
+    /// of corrupt data saved earlier by `load` stays unless explicitly deleted.
+    static func reset(in defaults: UserDefaults = .standard, deleteRecoveryCopy: Bool = false) {
         defaults.removeObject(forKey: currentKey)
         defaults.removeObject(forKey: backupKey)
+        if deleteRecoveryCopy { defaults.removeObject(forKey: unreadableKey) }
     }
 }
