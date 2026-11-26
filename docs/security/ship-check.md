@@ -43,7 +43,7 @@ The background polls (`Workspace.swift:265, 267, 413-415`, every 5 s or 15 s) ru
 
 ### S-4 · Fixed 2026-11-26 · Dependency advisories not checked
 
-**Status:** `.github/dependabot.yml` opens weekly update PRs for GitHub Actions and Swift packages, and `.github/workflows/security.yml` runs dependency review (fails on moderate+ advisories) on pull requests and a gitleaks secret scan on pushes and pull requests. SwiftTerm is pinned by revision, so Dependabot cannot bump it; move it to a version tag to get updates.
+**Status:** `.github/dependabot.yml` opens weekly update PRs for GitHub Actions and Swift packages, and `.github/workflows/security.yml` runs OSV-Scanner over `Package.resolved` (fails on any known advisory) and a gitleaks secret scan on pushes, pull requests and weekly. SwiftTerm is pinned by revision, so Dependabot cannot bump it; move it to a version tag to get updates.
 
 Add Dependabot for `github-actions` and `swift` (one `.github/dependabot.yml`). Re-check advisories when SwiftTerm's pin moves.
 

@@ -4,7 +4,7 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 | Area | Skill | Last run | Blockers | Should-fix | Open / UNVERIFIED | Report |
 |------|-------|----------|----------|------------|-------------------|--------|
 | Positioning | pre-launch-icp-research | — | n/a | — | Skipped (see decisions) | — |
-| Ship check (10) | vibe-app-security-check | 2026-11-26 | 0 | 0 open; S-1, S-3, S-4 fixed | #10 covered by Dependabot + dependency review going forward; S-2 owner decision | [ship-check.md](../security/ship-check.md) |
+| Ship check (10) | vibe-app-security-check | 2026-11-26 | 0 | 0 open; S-1, S-3, S-4 fixed | #10 covered by Dependabot + OSV-Scanner going forward; S-2 owner decision | [ship-check.md](../security/ship-check.md) |
 | Transport, identity, device storage | secure-app-server-comm | 2026-11-26 | 0 | 0 | — | [secure-comm-report.md](../security/secure-comm-report.md) |
 | DAST + authz matrix + CI | security-self-test | 2026-11-26 | n/a | 0 (phase 3 CI applied) | No server: phases 0-2 n/a | `.github/workflows/security.yml` |
 | Data, vendors, rights, evidence | launch-data-protection-audit | 2026-11-26 | 0 | 1 open (P-2); P-1, P-3 fixed | P-4 owner decision | [data-protection-report.md](../privacy/data-protection-report.md) |
@@ -25,7 +25,7 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 7. **P-2** privacy doc list; **U-2 to U-6** small UI states
 
 ## CI security (self-test phase 3, applied 2026-11-26)
-Applied as proposed except CodeQL: one `.github/dependabot.yml` (ecosystems `github-actions` and `swift`, weekly) and one `security.yml` workflow running `actions/dependency-review-action` on pull requests and a secret scan (gitleaks) on push, with every action pinned by SHA like the existing workflows. CodeQL for Swift needs a macOS build and adds minutes, so it is optional.
+Applied with OSV-Scanner instead of dependency review (which needs the repository dependency graph enabled) and without CodeQL: one `.github/dependabot.yml` (ecosystems `github-actions` and `swift`, weekly) and one `security.yml` workflow running `actions/dependency-review-action` on pull requests and a secret scan (gitleaks) on push, with every action pinned by SHA like the existing workflows. CodeQL for Swift needs a macOS build and adds minutes, so it is optional.
 
 ## Next scheduled checks
 - Each pull request: existing Quality checks (`scripts/check.sh` on macos-26, Apple Silicon)

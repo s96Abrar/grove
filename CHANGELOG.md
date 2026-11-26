@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Security CI: Dependabot weekly updates for Actions and Swift packages, dependency review on pull requests and a secret scan on pushes and pull requests.
+- Security CI: Dependabot weekly updates for Actions and Swift packages, plus OSV-Scanner advisory checks of `Package.resolved` and a gitleaks secret scan on pushes, pull requests and weekly.
 - Repositories and folders can be removed from Grove individually (right-click → Remove from Grove…); files, branches and worktrees on disk are kept.
 - Privacy: Reset Workspace Metadata now deletes the workspace and its backup instead of keeping a full copy, and can also delete the recovery copy of earlier unreadable metadata.
 - CI: SwiftPM build products are cached between runs, and a hung run now times out after 25 minutes instead of 45.

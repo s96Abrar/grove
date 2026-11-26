@@ -37,7 +37,7 @@ Out of scope, unless Grove makes the problem worse:
 
 ## Automated checks
 
-Dependabot opens weekly update pull requests for GitHub Actions and Swift packages. Every pull request runs a dependency review that fails on known advisories of moderate severity or higher, and every push and pull request is scanned for committed secrets.
+Dependabot opens weekly update pull requests for GitHub Actions and Swift packages. Every push, every pull request and a weekly run check the pinned Swift packages against the OSV advisory database and scan commits for secrets.
 
 ## Verifying a download
 
