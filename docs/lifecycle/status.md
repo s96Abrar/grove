@@ -28,6 +28,6 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 One `.github/dependabot.yml` (ecosystems `github-actions` and `swift`, weekly) and one `security.yml` workflow running `actions/dependency-review-action` on pull requests and a secret scan (gitleaks) on push, with every action pinned by SHA like the existing workflows. CodeQL for Swift needs a macOS build and adds minutes, so it is optional.
 
 ## Next scheduled checks
-- Each pull request: existing Quality checks (`scripts/check.sh` on macos-26 and macos-26-intel)
+- Each pull request: existing Quality checks (`scripts/check.sh` on macos-26, Apple Silicon)
 - When adding a URL action, Git invocation, file-opening path or new stored field: re-run the matching rows (Workflow C)
 - Before each tagged release: re-run this gate

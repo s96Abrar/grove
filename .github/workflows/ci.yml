@@ -15,7 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, macos-26-intel]
+        # Apple Silicon only. Tagged releases still build and verify the x86_64
+        # slice (scripts/release.py, scripts/verify_app.py); it is not executed in CI.
+        os: [macos-26]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
