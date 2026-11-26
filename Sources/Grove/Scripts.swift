@@ -3,6 +3,23 @@ import SwiftUI
 extension ScriptRecord {
     static let icons = ["play.fill", "terminal", "hammer", "checkmark.circle", "bolt", "ladybug", "folder", "arrow.triangle.branch", "paperplane", "checkmark.shield", "text.alignleft"]
     static let tints = ["green", "blue", "orange", "purple", "red", "gray"]
+    /// Readable picker names for `icons`; unknown symbols (e.g. imported scripts) fall back to the raw name.
+    static func iconName(_ symbol: String) -> String {
+        switch symbol {
+        case "play.fill": return "Run"
+        case "terminal": return "Terminal"
+        case "hammer": return "Build"
+        case "checkmark.circle": return "Test"
+        case "bolt": return "Bolt"
+        case "ladybug": return "Debug"
+        case "folder": return "Folder"
+        case "arrow.triangle.branch": return "Branch"
+        case "paperplane": return "Deploy"
+        case "checkmark.shield": return "Lint"
+        case "text.alignleft": return "Format"
+        default: return symbol
+        }
+    }
     var color: Color {
         switch tint {
         case "blue": return .blue
@@ -111,14 +128,14 @@ struct ScriptSettingsView: View {
                     }
                 }
             }.frame(minHeight: 100)
-            TextField("Script name", text: $draft.name)
+            TextField("Script name", text: $draft.name).accessibilityLabel("Script name")
             Text("Shell command").font(.caption)
             TextEditor(text: $draft.command).font(.system(size: 12, design: .monospaced)).frame(height: 66).border(.secondary.opacity(0.3))
             Picker("Type", selection: $draft.kind) {
                 ForEach(ScriptPreset.kinds, id: \.self) { Text($0.capitalized).tag($0) }
             }
             HStack {
-                Picker("Icon", selection: $draft.icon) { ForEach(ScriptRecord.icons, id: \.self) { Label($0, systemImage: $0).tag($0) } }
+                Picker("Icon", selection: $draft.icon) { ForEach(ScriptRecord.icons, id: \.self) { Label(ScriptRecord.iconName($0), systemImage: $0).tag($0) } }
                 Picker("Color", selection: $draft.tint) { ForEach(ScriptRecord.tints, id: \.self) { Text($0.capitalized).tag($0) } }
             }
             Toggle("Only for this repository or folder", isOn: $repositoryOnly)

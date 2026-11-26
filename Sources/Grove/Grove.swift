@@ -111,7 +111,7 @@ struct SidebarView: View {
                 Text("LOCAL").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
             }.padding(.top, 24)
             Text("A little space for big ideas.").font(.caption).foregroundStyle(.secondary)
-            TextField("Find a worktree…", text: $search).textFieldStyle(.roundedBorder)
+            TextField("Find a worktree…", text: $search).textFieldStyle(.roundedBorder).accessibilityLabel("Search worktrees")
             HStack { Text("REPOSITORIES").font(.system(size: 10, weight: .semibold)).tracking(1.5).foregroundStyle(.secondary); Spacer(); Button { model.open() } label: { Image(systemName: "plus").frame(width: 28, height: 28).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("Add repository").help("Add repository") }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -243,7 +243,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: Binding(get: { model.pendingRename != nil }, set: { if !$0 { model.pendingRename = nil } }), onDismiss: { model.restoreFocus() }) {
-            VStack(spacing: 20) { Text("Rename branch").font(.headline); TextField("Branch name", text: $renamedBranch)
+            VStack(spacing: 20) { Text("Rename branch").font(.headline); TextField("Branch name", text: $renamedBranch).accessibilityLabel("Branch name")
                 HStack { Button("Cancel") { model.pendingRename = nil }.keyboardShortcut(.cancelAction)
                     Button("Rename") { if let tree = model.pendingRename { Task { await model.rename(tree, branch: renamedBranch) } }; model.pendingRename = nil }.keyboardShortcut(.defaultAction) } }
             .padding(30).frame(width: 350)
@@ -257,7 +257,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Label("A fresh branch, a focused task.", systemImage: "arrow.triangle.branch").font(.title2)
                 Text("Creates a new branch from the configured base reference in a sibling .grove-worktrees directory. Your current files stay in place.").foregroundStyle(.secondary)
-                TextField("feature/my-next-idea", text: $branch).textFieldStyle(.roundedBorder).onSubmit { create() }
+                TextField("feature/my-next-idea", text: $branch).textFieldStyle(.roundedBorder).accessibilityLabel("New branch name").onSubmit { create() }
                 if model.busy { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Creating worktree…").font(.caption).foregroundStyle(.secondary) } }
                 HStack { Spacer(); Button("Cancel") { model.showCreateSheet = false }.keyboardShortcut(.cancelAction)
                     Button("Create worktree") { create() }.buttonStyle(.borderedProminent).disabled(branch.isEmpty || model.busy) }
@@ -332,7 +332,7 @@ struct SessionTabs: View {
             }
         }
         .sheet(isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-            VStack(spacing: 20) { Text("Rename terminal tab").font(.headline); TextField("Tab name", text: $tabName); HStack { Button("Cancel") { renaming = nil }.keyboardShortcut(.cancelAction); Button("Save") { if let renaming { model.renameTab(renaming.id, name: tabName) }; renaming = nil }.keyboardShortcut(.defaultAction) } }.padding(30).frame(width: 350)
+            VStack(spacing: 20) { Text("Rename terminal tab").font(.headline); TextField("Tab name", text: $tabName).accessibilityLabel("Tab name"); HStack { Button("Cancel") { renaming = nil }.keyboardShortcut(.cancelAction); Button("Save") { if let renaming { model.renameTab(renaming.id, name: tabName) }; renaming = nil }.keyboardShortcut(.defaultAction) } }.padding(30).frame(width: 350)
         }
         .alert(closingPane == nil ? "Close this tab?" : "Close this split?", isPresented: Binding(get: { model.pendingClose != nil }, set: { if !$0 { model.pendingClose = nil } })) {
             Button("Cancel", role: .cancel) { model.pendingClose = nil }

@@ -2,7 +2,7 @@
 
 Scope: full app UI pass using the `ui-ux-pro-max` skill (`nextlevelbuilder/ui-ux-pro-max-skill`, installed to `~/.claude/skills/ui-ux-pro-max`), focused on the SwiftUI stack detected from `Package.swift`.
 
-Changes are **uncommitted**. The patch is at `docs/patches/ui-review-2026-11-23.patch`.
+Status: findings 1–8 are committed in `fa96dfe`. The open items are tracked in [Open item status](#open-item-status) below.
 
 ## Method
 
@@ -31,10 +31,9 @@ Changes are **uncommitted**. The patch is at `docs/patches/ui-review-2026-11-23.
 ## Verification
 
 - `swift build`: passes after all changes.
-- `git apply --check --reverse docs/patches/ui-review-2026-11-23.patch`: the patch matches the working tree.
 - Not verified visually. The app was not launched, so the layout result of changes 1 and 4 is unconfirmed against a screenshot.
 
-## Not changed (open items)
+## Not changed at review time (see status below)
 
 - **Fixed window frame** `TabView { … }.frame(width: 660, height: 640)` in `Settings.swift`. Skill says avoid fixed sizes for responsive content. Kept as a design choice; changing it is a product decision.
 - **Placeholder-only text field** "Find a worktree…" (`Grove.swift`) and "New branch name" / "Script name" fields rely on placeholders. Skill flags placeholder-only inputs. Needs a visible label or `accessibilityLabel` decision.
@@ -43,10 +42,17 @@ Changes are **uncommitted**. The patch is at `docs/patches/ui-review-2026-11-23.
 - **Help tab text** lists "Command palette ⌘K or ⇧⌘P"; the menu bar shows ⌘K and ⇧⌘P as separate items. Consistent enough, not changed.
 - **Dynamic Type** (skill priority 1 for iOS): Grove is macOS. Fixed font sizes in the sidebar and header are a deliberate density choice; not changed.
 
-## Applying the patch
+## Open item status
 
-```sh
-git apply docs/patches/ui-review-2026-11-23.patch
-```
+Last updated 2026-11-26. Swift was not built for these changes (Linux container without a Swift toolchain); run `swift build` and `scripts/check.sh` on macOS to confirm.
 
-No commit has been made.
+| Item | Status | Notes |
+|---|---|---|
+| Findings 1–8 | Done | Committed in `fa96dfe`. |
+| Placeholder-only text fields | Done | Added `.accessibilityLabel` to "Find a worktree…" (Search worktrees), command palette query (Search commands), palette "New branch name", clone URL (Git repository URL), create sheet branch field (New branch name), rename-branch and rename-tab fields, and "Script name". The visible look is unchanged. "New worktree base ref" sits in a Settings `Form`, which already shows its title as a label. |
+| Icon picker shows raw SF Symbol names | Done | `ScriptRecord.iconName(_:)` maps each symbol to a readable name matching the presets (Run, Test, Lint, Format, Deploy…). Unknown symbols from imported scripts fall back to the raw name. |
+| `DiffView.swift` review | Partly done | Grep shows the layout picker, file headers and diff rows already have accessibility labels. A full read of the file is still pending. |
+| Fixed Settings window frame (660×640) | Open — product decision | Not changed. |
+| Dynamic Type / fixed sidebar fonts | Won't fix | Deliberate density choice on macOS. |
+| Help tab "⌘K or ⇧⌘P" wording | Won't fix | Consistent with the menu bar. |
+| Visual confirmation of findings 1 and 4 | Open | Needs a launch of the app on macOS. |
