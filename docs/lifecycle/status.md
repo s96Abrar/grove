@@ -8,7 +8,7 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 | Transport, identity, device storage | secure-app-server-comm | 2026-11-26 | 0 | 0 | — | [secure-comm-report.md](../security/secure-comm-report.md) |
 | DAST + authz matrix + CI | security-self-test | 2026-11-26 | n/a | 0 (phase 3 CI applied) | No server: phases 0-2 n/a | `.github/workflows/security.yml` |
 | Data, vendors, rights, evidence | launch-data-protection-audit | 2026-11-26 | 0 | 1 open (P-2); P-1, P-3 fixed | P-4 owner decision | [data-protection-report.md](../privacy/data-protection-report.md) |
-| UI states | ui-states-audit | 2026-11-26 | 0 | 6 (U-1 Major; U-2 to U-6 Minor) | Not checked visually | [ui-states.md](../ux/ui-states.md) |
+| UI states | ui-states-audit | 2026-11-26 | 0 | 5 open (U-2 to U-6 Minor); U-1 fixed | Not checked visually | [ui-states.md](../ux/ui-states.md) |
 | Native launch | optimistic-app-launch | 2026-11-26 | 0 | 0 | Timing not measured | [launch-audit.md](../performance/launch-audit.md) |
 | Web / API performance | web-perf-pass | — | n/a | — | Not a web app | — |
 
@@ -21,7 +21,7 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 3. **S-2** owner decision on repository-configured programs in background Git polls
 4. ~~**P-1** Reset deletes~~ and ~~**P-3** "Remove from Grove…"~~ fixed 2026-11-26
 5. ~~**S-4** Dependabot + security workflow~~ fixed 2026-11-26
-6. **U-1** clone progress and Cancel
+6. ~~**U-1** clone progress and Cancel~~ fixed 2026-11-26 (fetch-before-create is still not cancellable)
 7. **P-2** privacy doc list; **U-2 to U-6** small UI states
 
 ## CI security (self-test phase 3, applied 2026-11-26)

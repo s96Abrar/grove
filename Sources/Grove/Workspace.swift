@@ -502,14 +502,29 @@ import AppKit
         do { try await Task.detached { try Git.rename(branch, at: tree.path) }.value; await reload(); if let changed = trees.values.flatMap({ $0 }).first(where: { $0.path == tree.path }) { select(changed) } }
         catch { self.error = error.localizedDescription }
     }
+    /// URL of the clone currently running, shown with a Cancel button.
+    @Published private(set) var cloneInProgress: String?
+    private var cloneHandle: ProcessHandle?
+    func cancelClone() { cloneHandle?.cancel() }
     func clone(_ url: String, to parent: URL) async {
         guard url.hasPrefix("https://") || url.hasPrefix("git@") || url.hasPrefix("ssh://") else { error = "Use an HTTPS or SSH Git URL."; return }
-        busy = true; defer { busy = false }
+        guard cloneInProgress == nil else { error = "A clone is already running. Wait for it or cancel it first."; return }
+        let handle = ProcessHandle()
+        busy = true; cloneInProgress = url; cloneHandle = handle
+        defer { busy = false; cloneInProgress = nil; cloneHandle = nil }
         let destination = parent.appendingPathComponent("grove-clone-" + UUID().uuidString.prefix(8))
         do {
-            _ = try await Task.detached { try Shell.run("git", ["clone", "--", url, destination.path], at: parent.path) }.value
+            // Abort an HTTP transfer that stays below 1 KB/s for a minute instead of waiting forever.
+            let arguments = ["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "clone", "--", url, destination.path]
+            _ = try await Task.detached { try Shell.run("git", arguments, at: parent.path, handle: handle) }.value
             await add(destination.path)
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            if handle.isCancelled {
+                // The destination name is unique to this clone, so removing a partial checkout is safe.
+                if FileManager.default.fileExists(atPath: destination.path) { try? FileManager.default.removeItem(at: destination) }
+                transientNotice = "Clone cancelled."
+            } else { self.error = error.localizedDescription }
+        }
     }
     /// A `grove://` action that changes the workspace or runs repository code.
     /// Any web page, document or app can open a `grove://` URL, so these wait
@@ -597,9 +612,28 @@ import AppKit
     func terminal() { addTab() }
 }
 
+/// Lets the main actor cancel a command running on a detached task. A cancel
+/// that arrives before the process starts terminates it as soon as it does.
+final class ProcessHandle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+    /// Returns false when the command was already cancelled.
+    func attach(_ process: Process) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        self.process = process
+        return !cancelled
+    }
+    func cancel() {
+        lock.lock(); cancelled = true; let running = process; lock.unlock()
+        if let running, running.isRunning { running.terminate() }
+    }
+}
+
 enum Shell {
     static func quote(_ value: String) -> String { "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-    static func run(_ executable: String, _ args: [String], at path: String, allowFailure: Bool = false) throws -> String {
+    static func run(_ executable: String, _ args: [String], at path: String, allowFailure: Bool = false, handle: ProcessHandle? = nil) throws -> String {
         let process = Process(), pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [executable] + args
@@ -609,7 +643,9 @@ enum Shell {
         env["GIT_TERMINAL_PROMPT"] = "0"
         process.environment = env; process.currentDirectoryURL = URL(fileURLWithPath: path)
         process.standardOutput = pipe; process.standardError = pipe; process.standardInput = FileHandle.nullDevice
-        try process.run(); let data = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
+        try process.run()
+        if let handle, !handle.attach(process) { process.terminate() }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
         let output = String(decoding: data, as: UTF8.self)
         guard allowFailure || process.terminationStatus == 0 else { throw CommandError(message: output) }; return output
     }

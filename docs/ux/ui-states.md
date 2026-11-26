@@ -10,7 +10,7 @@ Run: 2026-11-26 · `ui-states-audit`, static review of `Sources/Grove/*.swift` a
 | 2 | Loading | Partial | Create sheet shows a spinner (`Grove.swift:262`). **Clone shows nothing**: the palette closes and the clone runs in the background with only disabled buttons as a hint (`Settings.swift:122-125`, `Workspace.swift:474-482`). (U-1) |
 | 3 | Error | Partial | One generic alert, "Grove needs your attention", with raw Git output and only OK (`Grove.swift:267`). Background failures use a dismissible banner (`Grove.swift:221-222`). No recovery actions. (U-4) |
 | 4 | Offline | Partial | Clone, fetch and `gh` failures appear as raw Git/`gh` text; no "check your connection" wording. Local work is unaffected (good). |
-| 5 | Slow network | Missing | Clone and fetch-before-create cannot be cancelled and have no timeout (`Workspace.swift:441, 479`; `Shell.run` waits indefinitely, `Workspace.swift:551`). (U-1) |
+| 5 | Slow network | Partial (clone fixed) | Clone and fetch-before-create cannot be cancelled and have no timeout (`Workspace.swift:441, 479`; `Shell.run` waits indefinitely, `Workspace.swift:551`). (U-1) |
 | 6 | No search results | Missing | Filtering the sidebar to zero matches leaves empty disclosure groups with no message (`Grove.swift:132`). (U-2) |
 | 7 | Permission denied | Partial | macOS privacy denials (Desktop/Documents/removable volumes) surface as raw "Operation not permitted" text (`FileBrowser.swift:31`; Git errors). No pointer to System Settings → Privacy & Security. (U-4) |
 | 8 | Session expired | Partial / mostly n/a | No Grove accounts. An expired `gh` login shows the raw `gh` error in the palette (`Settings.swift:127`) without suggesting `gh auth login`. |
@@ -21,7 +21,7 @@ Run: 2026-11-26 · `ui-states-audit`, static review of `Sources/Grove/*.swift` a
 
 | ID | Severity | Finding | Fix |
 |---|---|---|---|
-| U-1 | Should-fix (Major) | Clone has no progress, no cancel and no timeout; a slow or stalled remote leaves Grove silently busy | Show a progress row or sheet with Cancel (terminate the `Process`); same for fetch-before-create |
+| U-1 | Fixed 2026-11-26 (clone) | Clone has no progress, no cancel and no timeout; a slow or stalled remote leaves Grove silently busy | Show a progress row or sheet with Cancel (terminate the `Process`); same for fetch-before-create |
 | U-2 | Should-fix (Minor) | No "No worktrees match '…'" message for an empty sidebar search | Add a message under the search field with a Clear button |
 | U-3 | Should-fix (Minor) | Branch name and clone URL are validated only after submit, via alert | Validate as you type with inline helper text; reuse the `Git.create` allow-list |
 | U-4 | Should-fix (Minor) | Errors are raw tool output with only OK; offline, permission and `gh` auth cases are not recognised | Map common cases (network unreachable, `Operation not permitted`, `gh auth`) to plain-language text with an action (Retry, Open Privacy Settings, show `gh auth login`); keep the raw text under "Details" |
