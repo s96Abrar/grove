@@ -336,6 +336,34 @@ final class RegressionTests: XCTestCase {
         XCTAssertTrue(model.error?.contains("was kept") == true)
     }
 
+    /// File browser markers come from porcelain status, including renames
+    /// (which carry an extra original-path field) and untracked files.
+    func testFileBrowserStatusMarkers() throws {
+        let parsed = FileBrowser.parseStatus(" M Sources/a.swift\0?? notes.txt\0R  new.swift\0old.swift\0UU both.txt\0A  docs/new.md\0")
+        XCTAssertEqual(parsed, ["Sources/a.swift": " M", "notes.txt": "??", "new.swift": "R ", "both.txt": "UU", "docs/new.md": "A "])
+        XCTAssertEqual(FileBrowser.marker(code: " M").symbol, "M")
+        XCTAssertEqual(FileBrowser.marker(code: "??").symbol, "U")
+        XCTAssertEqual(FileBrowser.marker(code: "R ").symbol, "R")
+        XCTAssertEqual(FileBrowser.marker(code: "UU").symbol, "!")
+        XCTAssertEqual(FileBrowser.marker(code: "A ").symbol, "A")
+        XCTAssertEqual(FileBrowser.marker(code: " D").symbol, "D")
+
+        let repo = FileManager.default.temporaryDirectory.appendingPathComponent("grove-status-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: repo.appendingPathComponent("dir"), withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: repo) }
+        _ = try Git.run(["init", "-b", "main"], at: repo.path)
+        try "x".write(to: repo.appendingPathComponent("dir/new file.txt"), atomically: true, encoding: .utf8)
+        let real = FileBrowser.parseStatus(try Git.run(["status", "--porcelain=v1", "-z", "--untracked-files=all"], at: repo.path))
+        XCTAssertEqual(real, ["dir/new file.txt": "??"])
+        let top = try Git.run(["rev-parse", "--show-toplevel"], at: repo.path).trimmingCharacters(in: .whitespacesAndNewlines)
+        let index = FileBrowser.StatusIndex(top: top, paths: real)
+        XCTAssertEqual(index.lookup(URL(fileURLWithPath: top + "/dir/new file.txt"), root: top).code, "??")
+        XCTAssertTrue(index.lookup(URL(fileURLWithPath: top + "/dir"), root: top).folder)
+        XCTAssertFalse(index.lookup(URL(fileURLWithPath: top), root: top).folder)
+        // The listing may use the unresolved /var spelling of a /private/var repository.
+        XCTAssertTrue(index.lookup(repo.appendingPathComponent("dir"), root: repo.path).folder)
+    }
+
     /// "Remove from Grove" forgets one repository's metadata and sessions but
     /// never touches files, branches or worktrees on disk.
     @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {

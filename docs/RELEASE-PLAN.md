@@ -21,7 +21,7 @@ Features are added one PR at a time, each merged after CI. Merged items move to 
 
 1. Setup scripts that run when a worktree is created — **done**.
 2. Optional branch deletion when removing a worktree — **done**.
-3. Git status markers in the file browser.
+3. Git status markers in the file browser — **done**.
 4. Cancellable fetch-before-create.
 5. Arrow-key selection in the command palette.
 6. Agent "awaiting input" detection.
