@@ -78,14 +78,23 @@ struct FileBrowser: View {
                 }
             }
         }
-        /// Both spellings of the listed folder, e.g. /var/… and /private/var/….
+        /// Keys use Git's spelling (realpath, e.g. /private/var/…); the listing
+        /// may use another (/var/…), so also try the listed path under the
+        /// real path of `root`. Foundation's resolvingSymlinksInPath strips
+        /// /private instead, so it cannot be used here.
         func lookup(_ file: URL, root: String) -> (code: String?, folder: Bool) {
-            let resolvedRoot = URL(fileURLWithPath: root).resolvingSymlinksInPath().path
             var candidates = [file.path]
-            if file.path.hasPrefix(root + "/") { candidates.append(resolvedRoot + file.path.dropFirst(root.count)) }
-            if file.path.hasPrefix(resolvedRoot + "/") { candidates.append(root + file.path.dropFirst(resolvedRoot.count)) }
+            if file.path.hasPrefix(root + "/") {
+                let real = Self.realPath(root)
+                if real != root { candidates.append(real + file.path.dropFirst(root.count)) }
+            }
             if let code = candidates.lazy.compactMap({ files[$0] }).first { return (code, false) }
             return (nil, candidates.contains { folders.contains($0) })
+        }
+        static func realPath(_ path: String) -> String {
+            guard let resolved = realpath(path, nil) else { return path }
+            defer { free(resolved) }
+            return String(cString: resolved)
         }
     }
     /// Porcelain v1 `-z` output to relative path → two-letter status code.
