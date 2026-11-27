@@ -139,6 +139,9 @@ struct SidebarView: View {
                                         if model.notifyAwaitingInput {
                                             Button(model.isMuted(tree) ? "Unmute Notifications" : "Mute Notifications") { model.toggleMute(tree) }
                                         }
+                                        if let link = model.pullRequests[tree.path]?.url, link.hasPrefix("https://"), let url = URL(string: link) {
+                                            Button("Open Pull Request") { NSWorkspace.shared.open(url) }
+                                        }
                                         Button("Rename branch…") { renamedBranch = tree.branch; model.requestRename(tree) }
                                         Button("Remove worktree…", role: .destructive) { model.requestRemove(tree) }.disabled(tree.path == root || model.isFolder(root))
                                         Button("Reveal in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) }
@@ -285,6 +288,8 @@ struct ContentView: View {
                     continue
                 }
                 await model.reload(); await model.refreshChanges(background: true); await model.pollDiffStats()
+                // Network lookups run beside the local poll so they never delay it.
+                Task { await model.pollPullRequests() }
             }
         }
         .sheet(isPresented: Binding(get: { model.pendingRename != nil }, set: { if !$0 { model.pendingRename = nil } }), onDismiss: { model.restoreFocus() }) {
@@ -491,12 +496,16 @@ struct WorktreeRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if let pr = pullRequest { PullRequestBadge(summary: pr) }
             if model.saved.pinned.contains(tree.path) { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(accent) }
         }
         .padding(compact ? 4 : 10)
         .background(isSelected ? accent.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Worktree \(tree.branch), \(status.accessibilityLabel)\(summary?.dirty == true ? ", uncommitted changes" : "")")
+        .accessibilityLabel("Worktree \(tree.branch), \(status.accessibilityLabel)\(summary?.dirty == true ? ", uncommitted changes" : "")\(pullRequest.map { ", " + $0.summary } ?? "")")
+    }
+    private var pullRequest: PullRequestSummary? {
+        model.githubEnabled && model.showPullRequestStatus ? model.pullRequests[tree.path] : nil
     }
 }
 
@@ -669,22 +678,41 @@ struct RemoveWorktreeDialog: View {
     }
 }
 
-// MARK: - PR badge (green-quiet, red-loud: only rendered when state/mergeability needs attention)
+// MARK: - PR badge (opt-in; colour and symbol say what needs the author)
 
 struct PullRequestBadge: View {
-    let json: String
+    let summary: PullRequestSummary
     var body: some View {
-        if let data = json.data(using: .utf8),
-           let values = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let number = values["number"] as? Int,
-           (values["state"] as? String) == "OPEN",
-           (values["mergeable"] as? String) != "MERGEABLE" {
-            Text("#\(number)")
-                .font(.system(size: 10, design: .monospaced))
-                .padding(.horizontal, 5).padding(.vertical, 2)
-                .background(Color.orange.opacity(0.15), in: Capsule())
-                .foregroundStyle(.orange)
-                .accessibilityLabel("Pull request #\(number) needs attention")
+        HStack(spacing: 2) {
+            Image(systemName: symbol).font(.system(size: 8, weight: .bold))
+            Text("#\(summary.number)")
+        }
+        .font(.system(size: 10, design: .monospaced))
+        .padding(.horizontal, 5).padding(.vertical, 2)
+        .background(color.opacity(0.15), in: Capsule())
+        .foregroundStyle(color)
+        .help(summary.summary)
+        .accessibilityLabel(summary.summary)
+    }
+    private var symbol: String {
+        switch summary.state {
+        case .merged: return "arrow.triangle.merge"
+        case .closed: return "xmark"
+        case .open:
+            if summary.checks == .failing { return "xmark" }
+            if summary.needsAttention { return "exclamationmark" }
+            if summary.checks == .pending { return "clock" }
+            return summary.isDraft ? "pencil" : "checkmark"
+        }
+    }
+    private var color: Color {
+        switch summary.state {
+        case .merged: return .purple
+        case .closed: return .secondary
+        case .open:
+            if summary.checks == .failing { return .red }
+            if summary.needsAttention { return .orange }
+            return summary.checks == .pending || summary.isDraft ? .secondary : .green
         }
     }
 }

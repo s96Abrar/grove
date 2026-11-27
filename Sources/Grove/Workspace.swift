@@ -36,6 +36,8 @@ import AppKit
     @AppStorage("persistentTerminals") var persistent = true
     @AppStorage("appearance") var appearance = "dark"
     @AppStorage("githubEnabled") var githubEnabled = false
+    /// Opt-in: periodic `gh pr view` per worktree for the sidebar badge.
+    @AppStorage("showPullRequestStatus") var showPullRequestStatus = false
     @AppStorage("triageSort") var triageSort = true
     /// Match the bottom of live terminal screens against known prompts.
     @AppStorage("detectAwaitingInput") var detectAwaitingInput = true
@@ -510,6 +512,32 @@ import AppKit
     private var fetchHandle: ProcessHandle?
     func cancelFetch() { fetchHandle?.cancel() }
     /// `fetchFirst` overrides the Settings preference (used by tests).
+    // MARK: Pull request badges
+
+    /// Last known pull request per worktree path; memory only.
+    @Published private(set) var pullRequests: [String: PullRequestSummary] = [:]
+    private var pullRequestChecked: [String: Date] = [:]
+    private var pollingPullRequests = false
+    /// Look up a few worktrees whose last check is older than five minutes.
+    /// Failures (offline, signed out) keep the last known value.
+    func pollPullRequests() async {
+        guard githubEnabled, showPullRequestStatus, !pollingPullRequests else { return }
+        pollingPullRequests = true; defer { pollingPullRequests = false }
+        let worktrees = roots.filter { !isFolder($0) }.flatMap { visibleTrees($0) }.map { (path: $0.path, branch: $0.branch) }
+        let now = Date()
+        for path in PullRequestSummary.due(worktrees, checked: pullRequestChecked, now: now, interval: 300, limit: 3) {
+            guard githubEnabled, showPullRequestStatus, let branch = worktrees.first(where: { $0.path == path })?.branch else { return }
+            pullRequestChecked[path] = now
+            let result = await Task.detached { () -> (summary: PullRequestSummary?, noPullRequest: Bool) in
+                let output = (try? Shell.run("gh", ["pr", "view", "--json", PullRequestSummary.fields, "--", branch], at: path, allowFailure: true)) ?? ""
+                if let summary = PullRequestSummary.parse(Data(output.utf8)) { return (summary, false) }
+                return (nil, PullRequestSummary.isNoPullRequest(output))
+            }.value
+            if let summary = result.summary { if pullRequests[path] != summary { pullRequests[path] = summary } }
+            else if result.noPullRequest, pullRequests[path] != nil { pullRequests.removeValue(forKey: path) }
+        }
+    }
+    func forgetPullRequests() { pullRequests = [:]; pullRequestChecked = [:] }
     func create(_ branch: String, fetchFirst: Bool? = nil) async {
         guard let tree = selected, let root = root(for: tree), !isFolder(root) else { error = "Select a Git repository first."; return }
         guard fetchInProgress == nil else { error = "A fetch is already running. Wait for it or cancel it first."; return }

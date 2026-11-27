@@ -26,7 +26,7 @@ Features are added one PR at a time, each merged after CI. Merged items move to 
 5. Command palette: keep the arrow-key selection scrolled into view, plus Home/End — **done**. (Arrow-key selection itself already existed.)
 6. Agent "awaiting input" detection — **done**.
 7. Notifications for item 6 — **done**.
-8. Opt-in PR status badge in the sidebar.
+8. Opt-in PR status badge in the sidebar — **done**.
 
 Release criteria, steps and known limitations are the same as for v0.3.0 below; add a smoke test for each new feature.
 

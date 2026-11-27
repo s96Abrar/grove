@@ -40,7 +40,10 @@ struct SettingsView: View {
                 })).disabled(!model.detectAwaitingInput)
                 Text("A macOS notification names the branch and repository, never terminal text, and the Dock icon counts waiting worktrees. Not shown for the worktree in front of you. Mute a worktree from its sidebar menu.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Toggle("Compact sidebar", isOn: $model.compactSidebar)
-                Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
+                Toggle("Enable GitHub CLI integration", isOn: Binding(get: { model.githubEnabled }, set: { model.githubEnabled = $0; if !$0 { model.forgetPullRequests() } }))
+                Toggle("Show pull request status in the sidebar", isOn: Binding(get: { model.showPullRequestStatus }, set: { model.showPullRequestStatus = $0; if !$0 { model.forgetPullRequests() } }))
+                    .disabled(!model.githubEnabled)
+                Text("Runs gh pr view for each worktree's branch about every five minutes while Grove is active. Results stay in memory.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }.padding(24).frame(maxWidth: .infinity, alignment: .leading).tabItem { Label("General", systemImage: "gear") }
             ScriptSettingsView().tabItem { Label("Scripts", systemImage: "play") }
