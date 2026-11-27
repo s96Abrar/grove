@@ -1,0 +1,1 @@
+Six coding agents on one repo, and one of them is quietly asking "Do you want to proceed? (y/n)". Grove gives every task its own Git worktree and terminal, and ⌘⇧A jumps you straight to the one waiting on you. Native macOS, 8.6 MB, no telemetry, MIT: github.com/s96Abrar/grove

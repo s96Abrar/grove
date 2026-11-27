@@ -7,6 +7,19 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![No telemetry](https://img.shields.io/badge/telemetry-none-brightgreen)
 
+**Six coding agents on one repo. Grove gives each its own worktree, and ⌘⇧A jumps to the one waiting on you.**
+
+[![Watch the 21-second Grove launch video](brag-output/brag.jpg)](brag-output/brag.mp4)
+
+<sub>▶ Click to watch the 21-second launch video. The repository, branches and agent output shown are illustrative.</sub>
+
+### Why Grove
+
+- **Every task gets its own worktree:** a branch, a terminal and tabs per task, side by side in one window.
+- **It spots the agent waiting on you:** a "Do you want to proceed?" prompt or `(y/n)` turns the worktree into an orange question mark, and ⌘⇧A jumps straight to it.
+- **Sessions survive Quit:** tmux-backed shells keep running and reattach when you reopen Grove.
+- **Native and small:** an 8.6 MB SwiftUI/AppKit app with no web runtime, no telemetry, no account and no activation. MIT-licensed.
+
 An independent native macOS coding workspace: embedded interactive terminals, Git worktrees, tabs and nested splits. Grove's own code is MIT-licensed. It has no telemetry, account requirement or license activation; no Supacode code, artwork or services are adopted. Terminal rendering uses MIT-licensed SwiftTerm with a pinned dependency lockfile.
 
 <img src="Resources/AppIcon.png" width="128" height="128" alt="Grove app icon">
