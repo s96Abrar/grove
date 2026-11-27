@@ -52,7 +52,7 @@ The view renders a terminal; it does not own the shell’s durable lifetime. An 
 
 Close, detach and terminate are separate actions. Normal app quit should detach when persistence is enabled. Explicit teardown should terminate only Grove-owned sessions. A session launch failure must remain visible and retryable rather than creating a duplicate process on every redraw. Keep the emulator view associated with stable surface identity so navigation does not restart the shell.
 
-Grove has selected the MIT-licensed SwiftTerm at revision `e213ebb5cc7005e1b9e4629ae97bf921808f683a` as its independent terminal renderer; upstream uses Ghostty. Renderer choice can provide equivalent workflows without claiming compatibility with every Ghostty-specific setting. The renderer and session backend need independent acceptance checks.
+Grove has selected the MIT-licensed SwiftTerm, pinned to the exact release `1.99.2` (revision `a183c15`), as its independent terminal renderer; upstream uses Ghostty. Renderer choice can provide equivalent workflows without claiming compatibility with every Ghostty-specific setting. The renderer and session backend need independent acceptance checks.
 
 ### State persistence
 

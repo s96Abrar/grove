@@ -2,7 +2,7 @@
 
 ## Build requirements
 
-The original implementation targeted macOS 14+ with Swift tools 5.9+ and system Git. The expanded package now declares Swift tools 6.2 and the MIT SwiftTerm dependency pinned to revision `e213ebb5cc7005e1b9e4629ae97bf921808f683a`; consult `Package.swift` for current inputs. The recorded local build used Swift 6.4 / Xcode 27.1 on Apple Silicon. Persistent terminals now require an installed tmux executable (`brew install tmux`); tested locally with tmux 3.8. It is not bundled. New dependency requirements must be recorded when introduced. `Package.swift` and any resolved package lockfile are the authoritative dependency inputs.
+The original implementation targeted macOS 14+ with Swift tools 5.9+ and system Git. The expanded package now declares Swift tools 6.2 and the MIT SwiftTerm dependency pinned to the exact release `1.99.2`; consult `Package.swift` for current inputs. The recorded local build used Swift 6.4 / Xcode 27.1 on Apple Silicon. Persistent terminals now require an installed tmux executable (`brew install tmux`); tested locally with tmux 3.8. It is not bundled. New dependency requirements must be recorded when introduced. `Package.swift` and any resolved package lockfile are the authoritative dependency inputs.
 
 From the project root:
 

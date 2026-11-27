@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dependencies: SwiftTerm is pinned to its `1.99.2` release tag instead of a bare revision, so Dependabot can offer updates. 1.99.2 is the first tag after the old pin (17 upstream commits: terminal conformance and selection fixes); no Grove code changes.
 - Development: `scripts/linux-precheck.sh` syntax-checks every Swift file and runs the Foundation-only checks on a machine without macOS, as a quick pre-check before CI.
 - Pull request badges (opt-in): with GitHub integration and **Show pull request status in the sidebar** on, each worktree shows its PR number with checks failing/running/passing, merge conflicts, requested changes, draft or merged state, refreshed about every five minutes through `gh`. Right-click → **Open Pull Request**.
 - Notifications (opt-in): turn on **Notify me when a worktree is waiting for input** in Settings → General to get a macOS notification when a worktree starts waiting, unless it is the one in front of you. The Dock icon counts waiting worktrees, clicking the notification opens the worktree, and a worktree can be muted from its sidebar menu. Notifications name the branch and repository only.
