@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Command palette: the highlighted result now scrolls into view as you arrow past the visible rows, Home and End jump to the first and last result, and VoiceOver reports which row is selected.
 - Fetch before creating a worktree (Settings → Worktrees) now shows a progress banner with **Cancel**; cancelling creates nothing. A stalled HTTP fetch gives up after a minute below 1 KB/s, as clone does. Cancel (for clone too) also stops Git's network helper, so it no longer waits for a stalled transfer to time out.
 - File browser shows Git status: **M** modified, **A** added, **D** deleted, **R** renamed, **U** untracked and **!** conflicted, plus a dot on folders that contain changes. Hover or VoiceOver reads the full name. Refreshes with the browser's Reload button and when you change folder.
 - Removing a worktree can also delete its branch: tick **Also delete the branch if it is merged** in the Remove dialog. Grove uses `git branch -d`, so a branch with unmerged commits is always kept and Grove says so.

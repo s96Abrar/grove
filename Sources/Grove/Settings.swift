@@ -104,6 +104,7 @@ struct PaletteView: View {
                 .onSubmit { executeSelection() }
                 .onChange(of: query) { _, _ in selection = 0 }
             Divider()
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 4) {
                     ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
@@ -117,9 +118,17 @@ struct PaletteView: View {
                                 if index == selection { Image(systemName: "return") }
                             }.padding(10).contentShape(Rectangle())
                             .background(index == selection ? Color.primary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.plain).id(action.id)
+                        .accessibilityAddTraits(index == selection ? .isSelected : [])
                     }
                 }
+            }
+            // Keep the highlighted row visible while arrowing past the edge.
+            .onChange(of: selection) { _, index in
+                let visible = actions
+                guard visible.indices.contains(index) else { return }
+                proxy.scrollTo(visible[index].id, anchor: nil)
+            }
             }
             if creating {
                 TextField("New branch name", text: $branch).accessibilityLabel("New branch name")
@@ -158,6 +167,8 @@ struct PaletteView: View {
                 switch event.keyCode {
                 case 125: selection = min(selection + 1, max(actions.count - 1, 0)); return nil
                 case 126: selection = max(selection - 1, 0); return nil
+                case 115: selection = 0; return nil  // Home
+                case 119: selection = max(actions.count - 1, 0); return nil  // End
                 default: return event
                 }
             }
@@ -227,7 +238,7 @@ struct ShortcutsHelpView: View {
                     shortcut("Run primary script", "⌘R")
                     shortcut("Stop primary script", "⌘.")
                     shortcut("Interrupt terminal command", "⌃C")
-                    shortcut("Navigate command palette", "↑↓ · Return")
+                    shortcut("Navigate command palette", "↑↓ · Home · End · Return")
                     shortcut("Back / clear / close palette", "Escape")
                     shortcut("Open Settings", "⌘,")
                     shortcut("Quit Grove", "⌘Q")
