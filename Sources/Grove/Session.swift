@@ -23,12 +23,13 @@ import Darwin
     /// re-render the whole terminal on the main thread.
     var appliedFont: NSFont?
     init(_ record: PaneRecord) { self.record = record; title = record.title }
-    func terminal(path: String, font: NSFont, persistent: Bool, background: NSColor) -> LocalProcessTerminalView {
+    func terminal(path: String, font: NSFont, persistent: Bool, background: NSColor, steadyCursor: Bool = false) -> LocalProcessTerminalView {
         if let view {
             if appliedFont != font { appliedFont = font; view.font = font }
             return view
         }
-        let terminal = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
+        let terminal = GroveTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
+        terminal.steadyCursor = steadyCursor
         if state == "Ended" {
             view = terminal
             // Ended panes still render; apply the requested font now so the
@@ -115,8 +116,9 @@ struct EmbeddedTerminal: NSViewRepresentable {
     let fontSize: Double
     let persistent: Bool
     let background: NSColor
+    var steadyCursor = false
     var font: NSFont { NSFont(name: fontName, size: fontSize) ?? .monospacedSystemFont(ofSize: fontSize, weight: .regular) }
-    func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent, background: background) }
+    func makeNSView(context: Context) -> LocalProcessTerminalView { session.terminal(path: path, font: font, persistent: persistent, background: background, steadyCursor: steadyCursor) }
     func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
         // Assign only when the target actually changed: updateNSView fires on
         // every state publish, and each assignment forces a cached-state refresh.
@@ -124,6 +126,8 @@ struct EmbeddedTerminal: NSViewRepresentable {
             session.appliedFont = font
             view.font = font
         }
+        // The setter returns early when the value is unchanged.
+        (view as? GroveTerminalView)?.steadyCursor = steadyCursor
         if session.appliedBackground != background {
             session.appliedBackground = background
             view.nativeBackgroundColor = background

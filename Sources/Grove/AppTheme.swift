@@ -10,6 +10,8 @@ struct AppTheme {
     /// Ultra-thin vibrancy in the HighPerformance tier; nil → opaque surfaces.
     let material: Material?
     let animationsEnabled: Bool
+    /// Show terminal cursors without blinking (Efficient profile, Reduce Motion).
+    let steadyCursor: Bool
 
     static func resolved(tier: PerformanceTier, animationsEnabled: Bool,
                          scheme: ColorScheme, reduceTransparency: Bool, reduceMotion: Bool) -> AppTheme {
@@ -22,7 +24,8 @@ struct AppTheme {
             accent: Color(red: 0.68, green: 0.88, blue: 0.51),
             terminalBackground: dark ? NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.06, alpha: 1) : .textBackgroundColor,
             material: allowMaterial ? .ultraThinMaterial : nil,
-            animationsEnabled: animationsEnabled && !reduceMotion && !reduceTransparency)
+            animationsEnabled: animationsEnabled && !reduceMotion && !reduceTransparency,
+            steadyCursor: tier == .efficient || reduceMotion)
     }
 
     static let `default` = AppTheme(
@@ -32,7 +35,8 @@ struct AppTheme {
         accent: Color(red: 0.68, green: 0.88, blue: 0.51),
         terminalBackground: NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.06, alpha: 1),
         material: nil,
-        animationsEnabled: false)
+        animationsEnabled: false,
+        steadyCursor: false)
 }
 
 private struct AppThemeKey: EnvironmentKey {

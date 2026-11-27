@@ -260,7 +260,27 @@ final class RegressionTests: XCTestCase {
                 scheme: .light, reduceTransparency: preference.0, reduceMotion: preference.1)
             XCTAssertNil(theme.material)
             XCTAssertFalse(theme.animationsEnabled)
+            XCTAssertEqual(theme.steadyCursor, preference.1, "Reduce Motion stops cursor blink")
         }
+        XCTAssertTrue(AppTheme.resolved(tier: .efficient, animationsEnabled: false, scheme: .dark, reduceTransparency: false, reduceMotion: false).steadyCursor)
+        XCTAssertFalse(AppTheme.resolved(tier: .highPerformance, animationsEnabled: true, scheme: .dark, reduceTransparency: false, reduceMotion: false).steadyCursor)
+    }
+
+    /// The Efficient profile shows cursors steady without changing the
+    /// program's requested cursor shape.
+    @MainActor func testSteadyCursorKeepsShapeAndProgramStyle() {
+        XCTAssertEqual(GroveTerminalView.steadyStyle(.blinkBlock), .steadyBlock)
+        XCTAssertEqual(GroveTerminalView.steadyStyle(.blinkUnderline), .steadyUnderline)
+        XCTAssertEqual(GroveTerminalView.steadyStyle(.blinkBar), .steadyBar)
+        XCTAssertEqual(GroveTerminalView.steadyStyle(.steadyBar), .steadyBar)
+        let view = GroveTerminalView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
+        view.setCursorStyle(.blinkBar)
+        let requested = view.terminalStateSnapshot().cursorStyle
+        view.steadyCursor = true
+        XCTAssertTrue(view.steadyCursor)
+        XCTAssertEqual(view.terminalStateSnapshot().cursorStyle, requested)
+        view.steadyCursor = false
+        XCTAssertEqual(view.terminalStateSnapshot().cursorStyle, requested)
     }
 
     /// `grove://` URLs can come from any web page or app: adding an unknown

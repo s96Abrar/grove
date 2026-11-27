@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Efficient profile and Reduce Motion: terminal cursors no longer blink. Programs still choose the cursor shape (block, bar, underline); only the blinking is dropped, and their requested style is kept for when blinking is allowed again.
 - Dependencies: SwiftTerm is pinned to its `1.99.2` release tag instead of a bare revision, so Dependabot can offer updates. 1.99.2 is the first tag after the old pin (17 upstream commits: terminal conformance and selection fixes); no Grove code changes.
 - Development: `scripts/linux-precheck.sh` syntax-checks every Swift file and runs the Foundation-only checks on a machine without macOS, as a quick pre-check before CI.
 - Pull request badges (opt-in): with GitHub integration and **Show pull request status in the sidebar** on, each worktree shows its PR number with checks failing/running/passing, merge conflicts, requested changes, draft or merged state, refreshed about every five minutes through `gh`. Right-click → **Open Pull Request**.
