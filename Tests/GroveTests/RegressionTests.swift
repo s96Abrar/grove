@@ -293,6 +293,29 @@ final class RegressionTests: XCTestCase {
         XCTAssertTrue(try Git.list(at: root).contains { $0.branch == "from-link" })
     }
 
+    /// Setup scripts open their own tab in a newly created worktree; other
+    /// script kinds, empty commands and other repositories' scripts do not.
+    @MainActor func testSetupScriptsRunInNewWorktreeOnly() async throws {
+        let (model, _, _) = try fixture()
+        let root = model.roots[0]
+        let setup = ScriptRecord(name: "Install", command: "echo install", root: root, kind: "setup")
+        let global = ScriptRecord(name: "Global setup", command: "echo global", kind: "setup")
+        let empty = ScriptRecord(name: "Empty", command: "  ", kind: "setup")
+        let elsewhere = ScriptRecord(name: "Elsewhere", command: "echo no", root: "/elsewhere", kind: "setup")
+        let run = ScriptRecord(name: "Run", command: "echo run", root: root, kind: "run")
+        model.saved.scripts = [global, setup, empty, elsewhere, run]
+        XCTAssertEqual(model.setupScripts(for: root).map(\.id), [setup.id, global.id])
+
+        await model.create("with-setup")
+        let created = try XCTUnwrap(model.selected)
+        XCTAssertEqual(created.branch, "with-setup")
+        let tabs = model.saved.tabs[created.path] ?? []
+        XCTAssertEqual(tabs.compactMap(\.scriptID), [setup.id, global.id])
+        XCTAssertEqual(tabs.last?.panes.first?.command, "echo global")
+        XCTAssertEqual(model.saved.activeTabs?[created.path], tabs.last?.id)
+        XCTAssertNil(model.error)
+    }
+
     /// "Remove from Grove" forgets one repository's metadata and sessions but
     /// never touches files, branches or worktrees on disk.
     @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {

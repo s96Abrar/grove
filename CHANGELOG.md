@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Setup scripts: a new **Setup** script type runs automatically, in its own script tab, each time Grove creates a worktree (for example `npm install`). Scope it to one repository or all; imported `grove.json` setup scripts are flagged in the import review, and the `grove://new-worktree` confirmation mentions them.
+
 ## 0.3.0 — 2026-11-27
 
 - Launch: Settings no longer opens every installed font to find the monospaced ones each time its view is created. It asks macOS for fixed-pitch font names once, on first use. Measured on an M3 Pro (10 runs): launch to interactive terminal 820 → 616 ms, idle memory (RSS) 255 → 120 MB.
