@@ -38,6 +38,16 @@ extension ScriptRecord {
         return saved.scripts.filter { $0.root != nil && $0.applies(to: root) } + saved.scripts.filter { $0.root == nil }
     }
     var primaryScript: ScriptRecord? { availableScripts.first { $0.kind == "run" } }
+    /// Setup scripts that apply to `root`, in Settings order. These run on
+    /// their own when Grove creates a worktree, so empty commands are skipped.
+    func setupScripts(for root: String) -> [ScriptRecord] {
+        let scoped = saved.scripts.filter { $0.root == root }, global = saved.scripts.filter { $0.root == nil }
+        return (scoped + global).filter { $0.kind == "setup" && !$0.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+    /// Open one script tab per setup script in the selected (new) worktree.
+    func runSetupScripts(for root: String) {
+        for script in setupScripts(for: root) { addTab(command: script.command, name: script.name, scriptID: script.id) }
+    }
     func runScript(_ script: ScriptRecord) {
         guard selected != nil, availableScripts.contains(where: { $0.id == script.id }) else { error = "Select a workspace that can run this script."; return }
         guard !script.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = "Enter a command in Settings → Scripts first."; return }
@@ -134,6 +144,9 @@ struct ScriptSettingsView: View {
             Picker("Type", selection: $draft.kind) {
                 ForEach(ScriptPreset.kinds, id: \.self) { Text($0.capitalized).tag($0) }
             }
+            if draft.kind == "setup" {
+                Text("Runs automatically in its own tab each time Grove creates a worktree, for example to install dependencies. You can also run it by hand.").font(.caption).foregroundStyle(.secondary)
+            }
             HStack {
                 Picker("Icon", selection: $draft.icon) { ForEach(ScriptRecord.icons, id: \.self) { Label(ScriptRecord.iconName($0), systemImage: $0).tag($0) } }
                 Picker("Color", selection: $draft.tint) { ForEach(ScriptRecord.tints, id: \.self) { Text($0.capitalized).tag($0) } }
@@ -144,7 +157,7 @@ struct ScriptSettingsView: View {
                 Button(editing == nil ? "Add script" : "Save changes") { store() }.disabled(!valid)
                 if editing != nil { Button("Cancel editing") { clear() } }
             }
-            Text("Presets fill the editor; review and save to add them. Commands run only when chosen, in the selected worktree. Tools must already be installed.").font(.caption).foregroundStyle(.secondary)
+            Text("Presets fill the editor; review and save to add them. Commands run only when chosen, in the selected worktree; Setup scripts also run when a worktree is created. Tools must already be installed.").font(.caption).foregroundStyle(.secondary)
         }.padding(20)
         .alert("Could not import scripts", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
             Button("OK") { importError = nil }
@@ -153,10 +166,14 @@ struct ScriptSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Import repository scripts?").font(.title2)
                 Text(importRoot ?? "").font(.caption)
-                Text("Review every command. Import replaces this repository's saved scripts; commands run only when chosen.")
+                Text("Review every command. Import replaces this repository's saved scripts. Setup scripts run automatically each time Grove creates a worktree in this repository; others run only when chosen.")
                 ScrollView {
                     ForEach(importPreview) { script in
-                        VStack(alignment: .leading) { Text(script.name).bold(); Text(script.command.isEmpty ? "(command not configured)" : script.command).font(.system(.caption, design: .monospaced)).textSelection(.enabled) }.padding(.bottom, 8)
+                        VStack(alignment: .leading) {
+                            Text(script.name).bold()
+                            if script.kind == "setup" { Label("Runs automatically on new worktrees", systemImage: "bolt.fill").font(.caption).foregroundStyle(.orange) }
+                            Text(script.command.isEmpty ? "(command not configured)" : script.command).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        }.padding(.bottom, 8)
                     }
                 }
                 HStack {

@@ -25,8 +25,9 @@ import Foundation
         try FileManager.default.createSymbolicLink(at: file, withDestinationURL: URL(fileURLWithPath: "/dev/zero"))
         do { _ = try ScriptConfiguration.load(at: root.path); fatalError("Special-file symlink accepted") } catch {}
         let presets = ScriptPreset.all
-        precondition(Array(presets.prefix(6)).map(\.name) == ["Run", "Test", "Deploy", "Lint", "Format", "Custom"])
-        precondition(presets.prefix(6).allSatisfy { $0.command.isEmpty }, "Categories must not invent an executable command")
+        precondition(Array(presets.prefix(7)).map(\.name) == ["Run", "Setup", "Test", "Deploy", "Lint", "Format", "Custom"])
+        precondition(presets[1].script.kind == "setup" && ScriptPreset.kinds.contains("setup"))
+        precondition(presets.prefix(7).allSatisfy { $0.command.isEmpty }, "Categories must not invent an executable command")
         precondition(presets[0].script.id != presets[0].script.id, "Each new script needs its own identity")
         let project = try ScriptConfiguration.load(at: FileManager.default.currentDirectoryPath)
         precondition(project.count == 4 && project.contains { $0.command == "make build" })

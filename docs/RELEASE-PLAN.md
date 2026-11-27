@@ -2,20 +2,35 @@
 
 This is the plan for what ships next and how. The release *process* (gates, scripts, workflows) is in [RELEASING.md](RELEASING.md). Readiness findings are in [lifecycle status](lifecycle/status.md).
 
-Last updated: 2026-11-26.
+Last updated: 2026-11-27.
 
 ## Where things stand
 
 | Item | State |
 |---|---|
 | Version in `release.json` | `0.3.0`, build `4` |
-| Tags / GitHub releases | None yet. 0.3.0 was prepared but never tagged or published. |
-| `CHANGELOG.md` | A "0.3.0 — release preparation" section plus a long **Unreleased** list (performance, security, privacy and UI-state fixes since then). |
+| Tags / GitHub releases | **v0.3.0** tagged and published on 2026-11-26 ([release](https://github.com/s96Abrar/grove/releases/tag/v0.3.0)). |
+| `CHANGELOG.md` | `0.3.0 — 2026-11-26` section, plus an **Unreleased** list for the next release. |
 | CI on `main` | Quality checks (macOS build, tests, packaging, GUI relaunch) plus security checks (OSV vulnerability scan, gitleaks, Dependabot). |
 | Readiness | Lifecycle gate: **no Blockers, no open Should-fix items.** Two owner decisions remain (S-2, P-4); neither blocks a release. |
 | Distribution | Ad-hoc-signed and not notarized, by accepted policy ([AGENTS.md](../AGENTS.md)). |
 
-## Next release: v0.3.0 (first public release)
+## Next release: v0.4.0 (in progress)
+
+Features are added one PR at a time, each merged after CI. Merged items move to the CHANGELOG's Unreleased list.
+
+1. Setup scripts that run when a worktree is created — **done**.
+2. Optional branch deletion when removing a worktree.
+3. Git status markers in the file browser.
+4. Cancellable fetch-before-create.
+5. Arrow-key selection in the command palette.
+6. Agent "awaiting input" detection.
+7. Notifications for item 6.
+8. Opt-in PR status badge in the sidebar.
+
+Release criteria, steps and known limitations are the same as for v0.3.0 below; add a smoke test for each new feature.
+
+## v0.3.0 (first public release, published 2026-11-26)
 
 **Recommendation:** publish the first tagged release as **v0.3.0**. No 0.3.0 artifact exists anywhere, so there is nothing to conflict with. Fold the Unreleased notes into the 0.3.0 section rather than skipping to 0.4.0.
 

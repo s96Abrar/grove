@@ -456,7 +456,7 @@ import AppKit
                 return try Git.create(branch: branch, at: root, baseRef: ref)
             }.value
             await reload()
-            if let tree = trees[root]?.first(where: { $0.path == path }) { select(tree) }
+            if let tree = trees[root]?.first(where: { $0.path == path }) { select(tree); runSetupScripts(for: root) }
         } catch { self.error = error.localizedDescription }
     }
     func remove(_ tree: Worktree) async {

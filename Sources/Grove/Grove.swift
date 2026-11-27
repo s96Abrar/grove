@@ -205,7 +205,7 @@ struct ContentView: View {
         case .open(let path):
             return "A link or the grove command asked to add \(path). Grove runs Git in added folders, and a repository can configure programs that Git runs. Only continue if you trust this folder."
         case .newWorktree(_, let path):
-            return "A link or the grove command asked to create a worktree from \(path). Creating a worktree runs the repository's Git hooks. Only continue if you expected this."
+            return "A link or the grove command asked to create a worktree from \(path). Creating a worktree runs the repository's Git hooks and your Setup scripts. Only continue if you expected this."
         case nil: return ""
         }
     }

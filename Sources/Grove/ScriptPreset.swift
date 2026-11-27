@@ -7,9 +7,10 @@ struct ScriptPreset {
     let icon: String
     let tint: String
     var script: ScriptRecord { ScriptRecord(name: name, command: command, icon: icon, tint: tint, kind: Self.kinds.contains(name.lowercased()) ? name.lowercased() : "custom") }
-    static let kinds = ["run", "test", "deploy", "lint", "format", "custom"]
+    static let kinds = ["run", "setup", "test", "deploy", "lint", "format", "custom"]
     static let all: [ScriptPreset] = [
         .init(name: "Run", command: "", icon: "play.fill", tint: "green"),
+        .init(name: "Setup", command: "", icon: "hammer", tint: "orange"),
         .init(name: "Test", command: "", icon: "checkmark.circle", tint: "blue"),
         .init(name: "Deploy", command: "", icon: "paperplane", tint: "purple"),
         .init(name: "Lint", command: "", icon: "checkmark.shield", tint: "orange"),
