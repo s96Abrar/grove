@@ -38,6 +38,8 @@ git diff --check
 
 `make check` needs a logged-in graphical session. Checks use temporary repositories and their own tmux sessions; they do not touch your real workspaces. CI runs the same checks on an Apple Silicon runner for every pull request. Intel builds are compiled for releases but not run in CI, so mention it if you can test on an Intel Mac.
 
+Without a Mac (for example in a Linux container), `bash scripts/linux-precheck.sh` syntax-checks every Swift file and runs the Foundation-only checks. It needs Swift for Linux on `PATH`. It cannot build the app, so it is a quick pre-check before CI, not a substitute for `make check`.
+
 Add or update a test in `Tests/GroveTests` or `Checks/` for any behavior change you can exercise outside the UI. See [Testing](docs/TESTING.md) for acceptance scenarios.
 
 ## Pull requests

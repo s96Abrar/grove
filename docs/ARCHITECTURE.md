@@ -82,6 +82,8 @@ Forge adapters normalize PR/MR state, checks, reviews and merge readiness while 
 
 Consume a defined per-surface presence protocol. In inspected upstream source, hooks emit OSC 3008 through the terminal and the Unix socket carries CLI control. Do not infer “awaiting input” merely from output silence or a process name. Bound and validate escape-sequence payloads, preserving ordinary terminal output.
 
+Current Grove (v0.4) has no hook protocol yet. It marks a pane as awaiting input from two signals: an OSC 7501 program status of `blocked`, and explicit prompt text in the bottom rows of the visible screen (`AgentPrompt`, read through SwiftTerm's copied `visibleRowsText`), with interrupt hints and a trailing shell prompt ruling a match out. The text is matched in memory and never stored. Optional notifications (`AttentionNotifier`) post once per arrival, skip the active worktree, honor per-worktree mute and carry only branch and repository names.
+
 Notification events retain target surface/worktree identity. Apply user mute, sound, active-surface, filtering and retention choices before delivery. Permission denial must not prevent in-app notifications or terminal use.
 
 ## Concurrency and failure behavior

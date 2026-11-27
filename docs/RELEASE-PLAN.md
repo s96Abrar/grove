@@ -109,15 +109,13 @@ Tags and releases are immutable. A mistake is fixed with a new patch release (`v
 
 ## Candidates for the following release
 
-Not committed; pick from these after the first release ships.
+Not committed; pick from these after v0.4.0 ships.
 
 - **Owner decisions:**
   - S-2: whether background `git status` may run programs a repository configures.
   - P-4: whether workspace data stays in system backups.
-- Make fetch-before-create cancellable, and stream `git worktree add` output into a tab.
-- Post-create setup hooks for new worktrees.
-- Agent "awaiting input" detection (the triage status slot already exists).
-- Cursor-blink suppression in the Efficient profile.
+- Stream `git worktree add` output into a tab (cancellable fetch and Setup scripts shipped in v0.4).
+- Agent presence through hooks (OSC 3008), beyond today's on-screen prompt matching.
 - Feature-parity gaps from the [feature matrix](FEATURE-PARITY.md): branch grouping in the sidebar, archived-worktree expiry, custom shortcuts, terminal theme sync.
 - Moving SwiftTerm from a revision pin to a version tag, so Dependabot can update it.
 - Testing on an Intel Mac and on macOS 14.
