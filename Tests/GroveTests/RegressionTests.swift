@@ -409,6 +409,33 @@ final class RegressionTests: XCTestCase {
         XCTAssertFalse(session.sampleAwaitingInput(enabled: true))
     }
 
+    /// A worktree alerts once when it starts waiting, not again while it
+    /// keeps waiting, and never while muted. Muting persists in the workspace.
+    @MainActor func testWaitingAlertsOnArrivalAndHonorsMute() async throws {
+        let (model, tree, _) = try fixture()
+        let root = model.roots[0]
+        let main = model.trees[root]![0]
+        model.saved.tabs[main.path] = [TabRecord()]
+        model.selected = main
+        let session = model.session(model.saved.tabs[tree.path]![0].panes[0])
+        func sample(_ state: String) { session.state = state; model.recordStatusSnapshot(); model.recordStatusSnapshot() }
+        sample("Awaiting input")
+        XCTAssertEqual(model.lastAttentionArrivals, [tree.path])
+        model.recordStatusSnapshot()
+        XCTAssertEqual(model.lastAttentionArrivals, [])
+        sample("Shell")
+        model.toggleMute(tree)
+        XCTAssertTrue(model.isMuted(tree))
+        XCTAssertEqual(model.saved.mutedAlerts, [tree.path])
+        sample("Awaiting input")
+        XCTAssertEqual(model.lastAttentionArrivals, [])
+        sample("Shell")
+        model.toggleMute(tree)
+        XCTAssertNil(model.saved.mutedAlerts)
+        sample("Awaiting input")
+        XCTAssertEqual(model.lastAttentionArrivals, [tree.path])
+    }
+
     /// "Remove from Grove" forgets one repository's metadata and sessions but
     /// never touches files, branches or worktrees on disk.
     @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {

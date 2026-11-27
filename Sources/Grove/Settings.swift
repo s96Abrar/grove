@@ -34,6 +34,11 @@ struct SettingsView: View {
                 Toggle("Sort worktrees by attention", isOn: $model.triageSort)
                 Toggle("Show when a terminal program is waiting for input", isOn: $model.detectAwaitingInput)
                 Text("Every few seconds Grove reads the last lines of each terminal on this Mac to spot prompts such as “Do you want to proceed?” or “(y/n)”. Nothing is stored or sent.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Toggle("Notify me when a worktree is waiting for input", isOn: Binding(get: { model.notifyAwaitingInput }, set: { value in
+                    model.notifyAwaitingInput = value
+                    Task { await model.notificationsToggled(value) }
+                })).disabled(!model.detectAwaitingInput)
+                Text("A macOS notification names the branch and repository, never terminal text, and the Dock icon counts waiting worktrees. Not shown for the worktree in front of you. Mute a worktree from its sidebar menu.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Toggle("Compact sidebar", isOn: $model.compactSidebar)
                 Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
                 Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

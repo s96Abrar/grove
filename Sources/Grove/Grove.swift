@@ -136,6 +136,9 @@ struct SidebarView: View {
                                     .contextMenu {
                                         Button(model.saved.pinned.contains(tree.path) ? "Unpin" : "Pin") { model.pin(tree) }
                                         Button(model.saved.archived.contains(tree.path) ? "Unarchive" : "Archive") { model.archive(tree) }
+                                        if model.notifyAwaitingInput {
+                                            Button(model.isMuted(tree) ? "Unmute Notifications" : "Mute Notifications") { model.toggleMute(tree) }
+                                        }
                                         Button("Rename branch…") { renamedBranch = tree.branch; model.requestRename(tree) }
                                         Button("Remove worktree…", role: .destructive) { model.requestRemove(tree) }.disabled(tree.path == root || model.isFolder(root))
                                         Button("Reveal in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: tree.path) }
@@ -275,7 +278,12 @@ struct ContentView: View {
             await model.reload()
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(PerformanceProfileManager.shared.statusPollInterval)) } catch { break }
-                guard NSApp.isActive else { continue }
+                guard NSApp.isActive else {
+                    // In the background only the screen-based status sample runs
+                    // (no Git, no network), so waiting-for-input notifications can fire.
+                    if model.notifyAwaitingInput && model.detectAwaitingInput { model.recordStatusSnapshot() }
+                    continue
+                }
                 await model.reload(); await model.refreshChanges(background: true); await model.pollDiffStats()
             }
         }

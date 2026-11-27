@@ -39,6 +39,8 @@ import AppKit
     @AppStorage("triageSort") var triageSort = true
     /// Match the bottom of live terminal screens against known prompts.
     @AppStorage("detectAwaitingInput") var detectAwaitingInput = true
+    /// Opt-in: macOS notification and Dock badge when a worktree starts waiting.
+    @AppStorage("notifyAwaitingInput") var notifyAwaitingInput = false
     @AppStorage("compactSidebar") var compactSidebar = false
     private var reattachedIDs = Set<UUID>()
     private var restoredPaneIDs = Set<UUID>()
@@ -88,6 +90,7 @@ import AppKit
         let center = NotificationCenter.default
         center.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor [weak self] in self?.refreshFocusedPane() } }
         center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor [weak self] in self?.refreshFocusedPane() } }
+        AttentionNotifier.shared.attach(self)
     }
     var roots: [String] { saved.roots }
     var usePersistentTerminals: Bool { verificationPath != nil || persistent }
@@ -266,6 +269,59 @@ import AppKit
         previousStatusSamples = sample
         // Publish exactly once, and only when the stable statuses changed.
         if lastStatuses != committed { lastStatuses = committed }
+        updateAttentionAlerts(committed)
+    }
+
+    // MARK: Waiting-for-input notifications
+
+    private var lastWaiting = Set<String>()
+    /// Worktrees that started waiting at the last stable sample (for tests).
+    private(set) var lastAttentionArrivals: [String] = []
+    private func updateAttentionAlerts(_ statuses: [String: WorktreeStatus]) {
+        let waiting = Set(statuses.filter { $0.value == .awaitingInput }.keys)
+        let muted = saved.mutedAlerts ?? []
+        let focused = NSApp?.isActive == true ? selected?.path : nil
+        let arrivals = AttentionAlerts.newlyWaiting(previous: lastWaiting, current: waiting, muted: muted, focused: focused)
+        let answered = Array(lastWaiting.subtracting(waiting))
+        lastWaiting = waiting
+        lastAttentionArrivals = arrivals
+        guard notifyAwaitingInput else { return }
+        for path in arrivals {
+            guard let tree = trees.values.flatMap({ $0 }).first(where: { $0.path == path }), let root = root(for: tree) else { continue }
+            AttentionNotifier.shared.post(path: path, branch: tree.branch, repository: URL(fileURLWithPath: root).lastPathComponent)
+        }
+        AttentionNotifier.shared.withdraw(paths: answered)
+        AttentionNotifier.shared.setBadge(AttentionAlerts.badge(waiting: waiting, muted: muted))
+    }
+    /// Called when the Settings toggle changes; turning it on asks macOS for permission.
+    func notificationsToggled(_ enabled: Bool) async {
+        guard enabled else { AttentionNotifier.shared.setBadge(nil); return }
+        guard AttentionNotifier.available else {
+            notifyAwaitingInput = false
+            error = "Notifications need the packaged Grove app (make package), not a development build."
+            return
+        }
+        if await AttentionNotifier.shared.requestAuthorization() {
+            AttentionNotifier.shared.setBadge(AttentionAlerts.badge(waiting: lastWaiting, muted: saved.mutedAlerts ?? []))
+        } else {
+            notifyAwaitingInput = false
+            error = "Grove isn't allowed to show notifications. Turn them on in System Settings → Notifications → Grove, then try again."
+        }
+    }
+    func isMuted(_ tree: Worktree) -> Bool { saved.mutedAlerts?.contains(tree.path) == true }
+    func toggleMute(_ tree: Worktree) {
+        var muted = saved.mutedAlerts ?? []
+        if !muted.insert(tree.path).inserted { muted.remove(tree.path) }
+        saved.mutedAlerts = muted.isEmpty ? nil : muted
+        save()
+        if notifyAwaitingInput { AttentionNotifier.shared.setBadge(AttentionAlerts.badge(waiting: lastWaiting, muted: muted)) }
+    }
+    /// Bring a worktree to the front, e.g. from a clicked notification.
+    func reveal(path: String) {
+        guard let tree = trees.values.flatMap({ $0 }).first(where: { $0.path == path }) else { return }
+        NSApp.activate()
+        select(tree)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in _ = self?.focusTerminalPane() }
     }
 
     /// Tier-gated batch diff summary poll for visible worktrees.
@@ -494,7 +550,7 @@ import AppKit
             try await Task.detached { try Git.remove(tree, at: root) }.value
             for pane in panes { sessions.removeValue(forKey: pane.id) }
             saved.tabs.removeValue(forKey: tree.path); saved.activeTabs?.removeValue(forKey: tree.path)
-            saved.pinned.remove(tree.path); saved.archived.remove(tree.path); save()
+            saved.pinned.remove(tree.path); saved.archived.remove(tree.path); saved.mutedAlerts?.remove(tree.path); save()
             if deleteBranch && tree.branch != "detached HEAD" {
                 do {
                     try await Task.detached { try Git.deleteMergedBranch(tree.branch, at: root) }.value
@@ -532,7 +588,7 @@ import AppKit
         saved.scripts.removeAll { $0.root == root }
         for path in paths {
             saved.tabs.removeValue(forKey: path); saved.activeTabs?.removeValue(forKey: path)
-            saved.pinned.remove(path); saved.archived.remove(path)
+            saved.pinned.remove(path); saved.archived.remove(path); saved.mutedAlerts?.remove(path)
         }
         if let current = selected?.path, paths.contains(current) { selected = nil; saved.selected = nil; status = ""; diff = ""; pullRequest = "" }
         trees.removeValue(forKey: root)

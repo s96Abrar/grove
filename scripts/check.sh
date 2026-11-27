@@ -9,6 +9,8 @@ build/checks/state-check
 swiftc Sources/Grove/WorkspaceState.swift Sources/Grove/ScriptPreset.swift Checks/ScriptCheck.swift -o build/checks/script-check
 build/checks/script-check
 swiftc Sources/Grove/AgentPrompt.swift Checks/AgentPromptCheck.swift -o build/checks/agent-prompt-check
+swiftc Sources/Grove/AttentionAlerts.swift Checks/AttentionAlertsCheck.swift -o build/checks/attention-alerts-check
+build/checks/attention-alerts-check
 build/checks/agent-prompt-check
 swiftc Sources/Grove/OpenTarget.swift Checks/OpenTargetCheck.swift -o build/checks/open-target-check
 build/checks/open-target-check
