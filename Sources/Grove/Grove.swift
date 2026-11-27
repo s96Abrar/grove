@@ -455,7 +455,7 @@ struct TerminalPane: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(isFocused ? "Focused terminal: \(session.title)" : "Terminal: \(session.title)")
     }
-    private var status: WorktreeStatus { WorktreeStatus.parse(session.state) }
+    private var status: WorktreeStatus { session.awaitingInput ? .awaitingInput : WorktreeStatus.parse(session.state) }
 }
 
 // MARK: - Sidebar triage row

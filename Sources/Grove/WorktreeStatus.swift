@@ -55,12 +55,14 @@ enum WorktreeStatus: Int {
 
     /// Exhaustive mapping of every `Session.state` string value.
     /// Inventory: "Starting", "Shell", bare "Exited", "Ended",
-    /// "Exited N", "Exited signal", "Launch failed: …", "Program active".
+    /// "Exited N", "Exited signal", "Launch failed: …", "Program active",
+    /// "Awaiting input" (a program reported OSC 7501 `blocked`).
     static func parse(_ state: String) -> WorktreeStatus {
         if state == "Starting" { return .starting }
         if state == "Shell" { return .idle }
         if state == "Ended" { return .ended }
         if state == "Program active" { return .running }
+        if state == "Awaiting input" { return .awaitingInput }
         if state.hasPrefix("Launch failed") { return .failed }
         if state == "Exited" { return .idle }
         if state.hasPrefix("Exited ") {

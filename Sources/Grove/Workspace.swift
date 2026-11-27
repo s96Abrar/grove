@@ -37,6 +37,8 @@ import AppKit
     @AppStorage("appearance") var appearance = "dark"
     @AppStorage("githubEnabled") var githubEnabled = false
     @AppStorage("triageSort") var triageSort = true
+    /// Match the bottom of live terminal screens against known prompts.
+    @AppStorage("detectAwaitingInput") var detectAwaitingInput = true
     @AppStorage("compactSidebar") var compactSidebar = false
     private var reattachedIDs = Set<UUID>()
     private var restoredPaneIDs = Set<UUID>()
@@ -204,11 +206,7 @@ import AppKit
 
     func jumpToNextAttention() {
         let ordered = roots.flatMap { visibleTrees($0) }
-        let attention = ordered.filter { tree in
-            saved.tabs[tree.path]?.flatMap(\.panes).contains {
-                WorktreeStatus.parse(sessions[$0.id]?.state ?? "") == .failed
-            } == true
-        }
+        let attention = ordered.filter { [WorktreeStatus.failed, .awaitingInput].contains(status(for: $0.path)) }
         guard !attention.isEmpty else { return }
         let currentIndex = selected.flatMap { current in attention.firstIndex(where: { $0.path == current.path }) }
         let next = attention[(currentIndex.map { $0 + 1 } ?? 0) % attention.count]
@@ -245,7 +243,12 @@ import AppKit
     func status(for path: String) -> WorktreeStatus {
         let panes = saved.tabs[path]?.flatMap(\.panes) ?? []
         guard !panes.isEmpty else { return .idle }
-        let statuses = panes.map { WorktreeStatus.parse(sessions[$0.id]?.state ?? "Starting") }
+        let detect = detectAwaitingInput
+        let statuses = panes.map { pane -> WorktreeStatus in
+            guard let session = sessions[pane.id] else { return .starting }
+            let parsed = WorktreeStatus.parse(session.state)
+            return session.sampleAwaitingInput(enabled: detect && (parsed == .idle || parsed == .running)) ? .awaitingInput : parsed
+        }
         return statuses.min { $0.sortRank < $1.sortRank } ?? .idle
     }
 

@@ -32,6 +32,8 @@ struct SettingsView: View {
                 if model.workspaceStorageBlocked { Text("Workspace metadata needs recovery.").foregroundStyle(.orange) }
                 Button("Reset Workspace Metadata…", role: .destructive) { resetting = true }
                 Toggle("Sort worktrees by attention", isOn: $model.triageSort)
+                Toggle("Show when a terminal program is waiting for input", isOn: $model.detectAwaitingInput)
+                Text("Every few seconds Grove reads the last lines of each terminal on this Mac to spot prompts such as “Do you want to proceed?” or “(y/n)”. Nothing is stored or sent.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Toggle("Compact sidebar", isOn: $model.compactSidebar)
                 Toggle("Enable GitHub CLI integration", isOn: $model.githubEnabled)
                 Text("Uses your local gh authentication. No account, analytics, telemetry or license activation is required by Grove.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
