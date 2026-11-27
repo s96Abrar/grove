@@ -446,14 +446,31 @@ import AppKit
             guard selected?.path == path else { return }; pullRequest = output
         } catch { pullRequest = ErrorExplainer.explain(error.localizedDescription) }
     }
-    func create(_ branch: String) async {
+    /// Branch whose fetch-before-create is running, shown with a Cancel button.
+    @Published private(set) var fetchInProgress: String?
+    private var fetchHandle: ProcessHandle?
+    func cancelFetch() { fetchHandle?.cancel() }
+    /// `fetchFirst` overrides the Settings preference (used by tests).
+    func create(_ branch: String, fetchFirst: Bool? = nil) async {
         guard let tree = selected, let root = root(for: tree), !isFolder(root) else { error = "Select a Git repository first."; return }
+        guard fetchInProgress == nil else { error = "A fetch is already running. Wait for it or cancel it first."; return }
         busy = true; defer { busy = false }
         do {
-            let ref = baseRef, fetch = fetchBeforeCreate
+            let ref = baseRef
+            if fetchFirst ?? fetchBeforeCreate {
+                let handle = ProcessHandle()
+                fetchInProgress = branch; fetchHandle = handle
+                defer { fetchInProgress = nil; fetchHandle = nil }
+                do {
+                    // Same stall limit as clone: give up below 1 KB/s for a minute.
+                    let arguments = ["-C", root, "-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "fetch", "--prune"]
+                    _ = try await Task.detached { try Shell.run("/usr/bin/git", arguments, at: root, handle: handle) }.value
+                } catch where handle.isCancelled {
+                    showNotice("Fetch cancelled. No worktree was created."); return
+                }
+            }
             let path = try await Task.detached {
-                if fetch { _ = try Git.run(["fetch", "--prune"], at: root) }
-                return try Git.create(branch: branch, at: root, baseRef: ref)
+                try Git.create(branch: branch, at: root, baseRef: ref)
             }.value
             await reload()
             if let tree = trees[root]?.first(where: { $0.path == path }) { select(tree); runSetupScripts(for: root) }
@@ -658,7 +675,15 @@ final class ProcessHandle: @unchecked Sendable {
     }
     func cancel() {
         lock.lock(); cancelled = true; let running = process; lock.unlock()
-        if let running, running.isRunning { running.terminate() }
+        guard let running, running.isRunning else { return }
+        // Stop direct children first (e.g. git-remote-https): they share the
+        // output pipe and would otherwise keep the read open after Git exits.
+        let children = Process()
+        children.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        children.arguments = ["-TERM", "-P", String(running.processIdentifier)]
+        children.standardOutput = FileHandle.nullDevice; children.standardError = FileHandle.nullDevice
+        if (try? children.run()) != nil { children.waitUntilExit() }
+        running.terminate()
     }
 }
 

@@ -246,7 +246,10 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             VStack(spacing: 0) {
                 if let url = model.cloneInProgress {
-                    CloneProgressBanner(url: url) { model.cancelClone() }
+                    CloneProgressBanner(title: "Cloning \(url)…") { model.cancelClone() }
+                }
+                if let branch = model.fetchInProgress {
+                    CloneProgressBanner(title: "Fetching before creating “\(branch)”…") { model.cancelFetch() }
                 }
                 if let notice = model.transientNotice {
                     NoticeBanner(text: notice, style: .info) { model.transientNotice = nil }
@@ -575,13 +578,14 @@ struct NoticeBanner: View {
 
 /// Visible while `git clone` runs, so a slow or stalled remote is never a
 /// silent background task. Cancel terminates the clone process.
+/// A long-running Git operation (clone, fetch) with a Cancel button.
 struct CloneProgressBanner: View {
-    let url: String
+    let title: String
     let cancel: () -> Void
     var body: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            Text("Cloning \(url)…").font(.caption).lineLimit(1).truncationMode(.middle)
+            Text(title).font(.caption).lineLimit(1).truncationMode(.middle)
             Spacer()
             Button("Cancel", action: cancel).controlSize(.small)
         }
@@ -590,7 +594,7 @@ struct CloneProgressBanner: View {
         .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
         .padding(.horizontal, 16)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Cloning \(url)")
+        .accessibilityLabel(title)
     }
 }
 

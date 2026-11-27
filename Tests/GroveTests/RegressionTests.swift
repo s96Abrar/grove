@@ -364,6 +364,29 @@ final class RegressionTests: XCTestCase {
         XCTAssertTrue(index.lookup(repo.appendingPathComponent("dir"), root: repo.path).folder)
     }
 
+    /// Fetch-before-create can be cancelled while the remote never answers;
+    /// no worktree or branch is created and the helper process is stopped.
+    @MainActor func testFetchBeforeCreateCanBeCancelled() async throws {
+        let (model, _, _) = try fixture()
+        let root = model.roots[0]
+        _ = try Git.run(["config", "protocol.ext.allow", "always"], at: root)
+        // Never answers. Like git-remote-https, the helper (git remote-ext) is a
+        // direct child of fetch; its own child does not hold Grove's output pipe.
+        _ = try Git.run(["remote", "add", "origin", "ext::sh -c exec% sleep% 30% 2>/dev/null"], at: root)
+        let started = Date()
+        let creating = Task { await model.create("never-created", fetchFirst: true) }
+        while model.fetchInProgress == nil && Date().timeIntervalSince(started) < 5 { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(model.fetchInProgress, "never-created")
+        try await Task.sleep(for: .milliseconds(300))
+        model.cancelFetch()
+        await creating.value
+        XCTAssertLessThan(Date().timeIntervalSince(started), 15)
+        XCTAssertNil(model.fetchInProgress)
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.transientNotice, "Fetch cancelled. No worktree was created.")
+        XCTAssertFalse(try Git.list(at: root).contains { $0.branch == "never-created" })
+    }
+
     /// "Remove from Grove" forgets one repository's metadata and sessions but
     /// never touches files, branches or worktrees on disk.
     @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {
