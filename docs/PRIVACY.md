@@ -1,6 +1,6 @@
 # Privacy and external effects
 
-Grove is an independent local macOS application. No Supacode implementation code, assets, telemetry SDK, analytics identity or update infrastructure is adopted. Its terminal renderer dependency is the MIT-licensed SwiftTerm, pinned in `Package.swift` to `e213ebb5cc7005e1b9e4629ae97bf921808f683a`. A compatible workflow does not imply Ghostty configuration compatibility.
+Grove is an independent local macOS application. No Supacode implementation code, assets, telemetry SDK, analytics identity or update infrastructure is adopted. Its terminal renderer dependency is the MIT-licensed SwiftTerm, pinned in `Package.swift` to the exact release `1.99.2`. A compatible workflow does not imply Ghostty configuration compatibility.
 
 ## Telemetry policy
 

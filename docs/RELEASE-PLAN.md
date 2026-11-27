@@ -117,5 +117,4 @@ Not committed; pick from these after v0.4.0 ships.
 - Stream `git worktree add` output into a tab (cancellable fetch and Setup scripts shipped in v0.4).
 - Agent presence through hooks (OSC 3008), beyond today's on-screen prompt matching.
 - Feature-parity gaps from the [feature matrix](FEATURE-PARITY.md): branch grouping in the sidebar, archived-worktree expiry, custom shortcuts, terminal theme sync.
-- Moving SwiftTerm from a revision pin to a version tag, so Dependabot can update it.
 - Testing on an Intel Mac and on macOS 14.
