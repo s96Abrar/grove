@@ -459,7 +459,7 @@ import AppKit
             if let tree = trees[root]?.first(where: { $0.path == path }) { select(tree); runSetupScripts(for: root) }
         } catch { self.error = error.localizedDescription }
     }
-    func remove(_ tree: Worktree) async {
+    func remove(_ tree: Worktree, deleteBranch: Bool = false) async {
         guard let root = root(for: tree), !removingWorktrees.contains(tree.path) else { return }
         guard !(saved.tabs[tree.path] ?? []).contains(where: { closingPaneTabs.contains($0.id) }) else {
             error = "Wait for this worktree's terminal closure to finish before removing it."; return
@@ -475,6 +475,14 @@ import AppKit
             for pane in panes { sessions.removeValue(forKey: pane.id) }
             saved.tabs.removeValue(forKey: tree.path); saved.activeTabs?.removeValue(forKey: tree.path)
             saved.pinned.remove(tree.path); saved.archived.remove(tree.path); save()
+            if deleteBranch && tree.branch != "detached HEAD" {
+                do {
+                    try await Task.detached { try Git.deleteMergedBranch(tree.branch, at: root) }.value
+                    showNotice("Removed the worktree and deleted branch “\(tree.branch)”.")
+                } catch {
+                    self.error = "The worktree was removed, but branch “\(tree.branch)” was kept because it has commits that are not merged. To delete it anyway, run git branch -D \(tree.branch) in a terminal.\n\nDetails: \(error.localizedDescription)"
+                }
+            }
             await reload()
         } catch {
             // Keep cached ended/error sessions: recreating them can replay a transient command.

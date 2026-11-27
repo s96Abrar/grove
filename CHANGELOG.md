@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Removing a worktree can also delete its branch: tick **Also delete the branch if it is merged** in the Remove dialog. Grove uses `git branch -d`, so a branch with unmerged commits is always kept and Grove says so.
 - Setup scripts: a new **Setup** script type runs automatically, in its own script tab, each time Grove creates a worktree (for example `npm install`). Scope it to one repository or all; imported `grove.json` setup scripts are flagged in the import review, and the `grove://new-worktree` confirmation mentions them.
 
 ## 0.3.0 — 2026-11-27

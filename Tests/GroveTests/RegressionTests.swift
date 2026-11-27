@@ -316,6 +316,26 @@ final class RegressionTests: XCTestCase {
         XCTAssertNil(model.error)
     }
 
+    /// Removing a worktree can also delete its branch, but only when Git
+    /// considers it merged; a branch with unmerged commits is kept.
+    @MainActor func testRemoveCanDeleteMergedBranchOnly() async throws {
+        let (model, tree, _) = try fixture()
+        let root = model.roots[0]
+        await model.remove(tree, deleteBranch: true)
+        XCTAssertNil(model.error)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tree.path))
+        XCTAssertThrowsError(try Git.run(["rev-parse", "--verify", "refs/heads/task"], at: root))
+
+        let path = try Git.create(branch: "unmerged", at: root)
+        _ = try Git.run(["-c", "user.name=Check", "-c", "user.email=check@example.test", "commit", "--allow-empty", "-m", "work"], at: path)
+        let unmerged = Worktree(path: path, branch: "unmerged")
+        model.trees = [root: [Worktree(path: root, branch: "main"), unmerged]]
+        await model.remove(unmerged, deleteBranch: true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path))
+        XCTAssertNoThrow(try Git.run(["rev-parse", "--verify", "refs/heads/unmerged"], at: root))
+        XCTAssertTrue(model.error?.contains("was kept") == true)
+    }
+
     /// "Remove from Grove" forgets one repository's metadata and sessions but
     /// never touches files, branches or worktrees on disk.
     @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {
