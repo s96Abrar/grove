@@ -459,7 +459,7 @@ struct TerminalPane: View {
                         .buttonStyle(.plain).help("Close split").accessibilityLabel("Close split")
                 }
             }.font(.system(size: 10)).padding(8)
-            EmbeddedTerminal(session: session, path: path, fontName: model.fontName, fontSize: model.fontSize, persistent: model.usePersistentTerminals, background: theme.terminalBackground)
+            EmbeddedTerminal(session: session, path: path, fontName: model.fontName, fontSize: model.fontSize, persistent: model.usePersistentTerminals, background: theme.terminalBackground, steadyCursor: theme.steadyCursor)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 0)
