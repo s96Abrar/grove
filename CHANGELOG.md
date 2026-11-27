@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Pull request badges (opt-in): with GitHub integration and **Show pull request status in the sidebar** on, each worktree shows its PR number with checks failing/running/passing, merge conflicts, requested changes, draft or merged state, refreshed about every five minutes through `gh`. Right-click → **Open Pull Request**.
 - Notifications (opt-in): turn on **Notify me when a worktree is waiting for input** in Settings → General to get a macOS notification when a worktree starts waiting, unless it is the one in front of you. The Dock icon counts waiting worktrees, clicking the notification opens the worktree, and a worktree can be muted from its sidebar menu. Notifications name the branch and repository only.
 - Awaiting input: Grove now spots a terminal program waiting for you, such as an agent's "Do you want to proceed?" dialog, a `(y/n)` confirmation or "Press Enter to continue", or a program that reports OSC 7501 *blocked*. The pane and its worktree show an orange question mark, attention sorting puts it near the top, and ⌘⇧A jumps to it. The screen text is read locally and never stored. Turn it off in Settings → General.
 - Command palette: the highlighted result now scrolls into view as you arrow past the visible rows, Home and End jump to the first and last result, and VoiceOver reports which row is selected.
