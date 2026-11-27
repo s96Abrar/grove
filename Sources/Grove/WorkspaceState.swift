@@ -78,6 +78,8 @@ struct SavedWorkspace: Codable {
     var archived: Set<String> = []
     var selected: String? = nil
     var scripts: [ScriptRecord] = []
+    /// Worktree paths whose "waiting for input" notifications are muted.
+    var mutedAlerts: Set<String>? = nil
 }
 
 
