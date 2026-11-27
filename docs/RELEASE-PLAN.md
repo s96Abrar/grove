@@ -23,7 +23,7 @@ Features are added one PR at a time, each merged after CI. Merged items move to 
 2. Optional branch deletion when removing a worktree — **done**.
 3. Git status markers in the file browser — **done**.
 4. Cancellable fetch-before-create — **done**.
-5. Arrow-key selection in the command palette.
+5. Command palette: keep the arrow-key selection scrolled into view, plus Home/End — **done**. (Arrow-key selection itself already existed.)
 6. Agent "awaiting input" detection.
 7. Notifications for item 6.
 8. Opt-in PR status badge in the sidebar.
