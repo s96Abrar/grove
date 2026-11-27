@@ -601,14 +601,20 @@ struct RemoveWorktreeDialog: View {
     let tree: Worktree?
     let dismiss: () -> Void
     @State private var unpushedCount: Int?
+    @State private var deleteBranch = false
+    private var hasBranch: Bool { tree.map { $0.branch != "detached HEAD" } ?? false }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Remove worktree?", systemImage: "trash").font(.headline)
             Text(tree.map { "Remove worktree \"\(URL(fileURLWithPath: $0.path).lastPathComponent)\" (\($0.branch))?" } ?? "").font(.callout)
             VStack(alignment: .leading, spacing: 6) {
-                Text("The checkout is deleted. The branch \(tree.map { "\"\($0.branch)\"" } ?? "and its commits") and its commits are kept.").font(.caption).foregroundStyle(.secondary)
+                if deleteBranch && hasBranch {
+                    Text("The checkout and the branch \(tree.map { "\"\($0.branch)\"" } ?? "") are deleted. If the branch has commits that are not merged, Git keeps it and Grove tells you.").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("The checkout is deleted. The branch \(tree.map { "\"\($0.branch)\"" } ?? "and its commits") and its commits are kept.").font(.caption).foregroundStyle(.secondary)
+                }
                 if let unpushedCount, unpushedCount > 0 {
-                    Label("\(unpushedCount) unpushed commit\(unpushedCount == 1 ? "" : "s") — branch is kept, but not backed up remotely.", systemImage: "arrow.up.circle")
+                    Label(deleteBranch ? "\(unpushedCount) unpushed commit\(unpushedCount == 1 ? "" : "s") — the branch will be kept because it is not merged." : "\(unpushedCount) unpushed commit\(unpushedCount == 1 ? "" : "s") — branch is kept, but not backed up remotely.", systemImage: "arrow.up.circle")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 if runningPanes > 0 {
@@ -616,12 +622,17 @@ struct RemoveWorktreeDialog: View {
                         .font(.caption).foregroundStyle(.orange)
                 }
             }
+            if hasBranch {
+                Toggle("Also delete the branch if it is merged", isOn: $deleteBranch)
+                    .font(.callout)
+                    .help("Runs git branch -d after removing the worktree. A branch with unmerged commits is always kept.")
+            }
             Text("Uncommitted files block removal and are never deleted.").font(.caption2).foregroundStyle(.secondary)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Remove Worktree", role: .destructive) {
-                    if let tree { Task { await model.remove(tree) } }
+                    if let tree { let delete = deleteBranch && hasBranch; Task { await model.remove(tree, deleteBranch: delete) } }
                     dismiss()
                 }.keyboardShortcut(.return, modifiers: .command).buttonStyle(.borderedProminent)
             }

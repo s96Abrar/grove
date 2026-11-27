@@ -64,6 +64,12 @@ enum Git {
         try validateRemoval(tree, at: root)
         _ = try run(["worktree", "remove", "--", tree.path], at: root)
     }
+    /// Delete a branch only if Git considers it merged (into its upstream, or
+    /// HEAD when it has none). Never forces: unmerged commits are kept.
+    static func deleteMergedBranch(_ branch: String, at root: String) throws {
+        guard !branch.isEmpty, !branch.hasPrefix("-"), branch != "detached HEAD" else { throw CommandError(message: "There is no branch to delete.") }
+        _ = try run(["branch", "-d", "--", branch], at: root)
+    }
     static func rename(_ branch: String, at path: String) throws {
         _ = try run(["check-ref-format", "--branch", branch], at: path)
         _ = try run(["branch", "-m", "--", branch], at: path)
