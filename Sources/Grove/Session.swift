@@ -9,6 +9,9 @@ import Darwin
     @Published var title: String
     @Published var state = "Starting"
     @Published var muted = false
+    /// The visible screen shows a prompt waiting for the user. Updated by the
+    /// status poll (`sampleAwaitingInput`), not on every output byte.
+    @Published private(set) var awaitingInput = false
     var view: LocalProcessTerminalView?
     /// Last terminal background color applied to this session's view; guards
     /// against redundant `nativeBackgroundColor` assignments from frequent
@@ -68,6 +71,17 @@ import Darwin
         }
         return terminal
     }
+    /// Read the bottom rows of the screen (a copied, lock-safe read) and
+    /// match them against known prompts. Only live shells are sampled.
+    @discardableResult func sampleAwaitingInput(enabled: Bool) -> Bool {
+        var value = false
+        if enabled, let view, state == "Shell" || state == "Program active" {
+            let rows = view.terminalDimensions.rows
+            value = AgentPrompt.awaitsInput(view.visibleRowsText(max(0, rows - AgentPrompt.rowsToScan)..<rows))
+        }
+        if awaitingInput != value { awaitingInput = value }
+        return value
+    }
     func interrupt() { guard let view else { return }; view.send(source: view, data: [3][...]) }
     func detach() { view?.terminate(); state = "Ended" }
     func end() {
@@ -83,7 +97,11 @@ import Darwin
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
     func processTerminated(source: TerminalView, exitCode: Int32?) { state = "Exited \(exitCode.map(String.init) ?? "signal")" }
     func processFailedToStart(source: TerminalView, error: LocalProcessError) { state = "Launch failed: \(error)" }
-    func programStatusChanged(source: TerminalView, records: [TerminalProgramStatus]) { state = records.isEmpty ? "Shell" : "Program active" }
+    /// OSC 7501: a program reporting `blocked` (permission, question or
+    /// sign-in) is waiting for the user.
+    func programStatusChanged(source: TerminalView, records: [TerminalProgramStatus]) {
+        state = records.isEmpty ? "Shell" : (records.contains { $0.state == .blocked } ? "Awaiting input" : "Program active")
+    }
 }
 
 /// Terminal focus tracking is event-driven via window update/key notifications

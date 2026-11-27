@@ -387,6 +387,28 @@ final class RegressionTests: XCTestCase {
         XCTAssertFalse(try Git.list(at: root).contains { $0.branch == "never-created" })
     }
 
+    /// A program that reports OSC 7501 `blocked` marks its worktree as
+    /// awaiting input, and "next worktree needing attention" jumps to it.
+    @MainActor func testAwaitingInputRollsUpAndIsJumpTarget() async throws {
+        let (model, tree, _) = try fixture()
+        let root = model.roots[0]
+        let main = model.trees[root]![0]
+        model.saved.tabs[main.path] = [TabRecord()]
+        model.select(main)
+        let session = model.session(model.saved.tabs[tree.path]![0].panes[0])
+        session.state = "Program active"
+        XCTAssertEqual(model.status(for: tree.path), .running)
+        session.state = "Awaiting input"
+        XCTAssertEqual(WorktreeStatus.parse(session.state), .awaitingInput)
+        XCTAssertEqual(model.status(for: tree.path), .awaitingInput)
+        model.recordStatusSnapshot(); model.recordStatusSnapshot()
+        XCTAssertEqual(model.stableStatus(for: tree.path), .awaitingInput)
+        model.jumpToNextAttention()
+        XCTAssertEqual(model.selected?.path, tree.path)
+        // Without a terminal view there is no screen to read.
+        XCTAssertFalse(session.sampleAwaitingInput(enabled: true))
+    }
+
     /// "Remove from Grove" forgets one repository's metadata and sessions but
     /// never touches files, branches or worktrees on disk.
     @MainActor func testRemoveRootForgetsMetadataButKeepsFiles() async throws {
