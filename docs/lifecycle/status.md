@@ -21,11 +21,11 @@ Updated: 2026-11-26   Environment tested: source at `main` 5cfb94c (static revie
 3. **S-2** owner decision on repository-configured programs in background Git polls
 4. ~~**P-1** Reset deletes~~ and ~~**P-3** "Remove from Grove…"~~ fixed 2026-11-26
 5. ~~**S-4** Dependabot + security workflow~~ fixed 2026-11-26
-6. ~~**U-1** clone progress and Cancel~~ fixed 2026-11-26 (fetch-before-create is still not cancellable)
+6. ~~**U-1** clone progress and Cancel~~ fixed 2026-11-26; fetch-before-create became cancellable on 2026-11-27 (#23)
 7. ~~**P-2** privacy doc list; **U-2 to U-6** small UI states~~ fixed 2026-11-26
 
 ## CI security (self-test phase 3, applied 2026-11-26)
-Applied with OSV-Scanner instead of dependency review (which needs the repository dependency graph enabled) and without CodeQL: one `.github/dependabot.yml` (ecosystems `github-actions` and `swift`, weekly) and one `security.yml` workflow running `actions/dependency-review-action` on pull requests and a secret scan (gitleaks) on push, with every action pinned by SHA like the existing workflows. CodeQL for Swift needs a macOS build and adds minutes, so it is optional.
+Applied with OSV-Scanner instead of dependency review (which needs the repository dependency graph enabled) and without CodeQL: one `.github/dependabot.yml` (ecosystems `github-actions` and `swift`, weekly) and one `security.yml` workflow running an OSV-Scanner advisory check of `Package.resolved` and a secret scan (gitleaks) on pushes, pull requests and weekly, with every action pinned by SHA like the existing workflows. CodeQL for Swift needs a macOS build and adds minutes, so it is optional.
 
 ## Next scheduled checks
 - Each pull request: existing Quality checks (`scripts/check.sh` on macos-26, Apple Silicon)

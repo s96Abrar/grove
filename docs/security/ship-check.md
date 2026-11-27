@@ -13,7 +13,7 @@ Run: 2026-11-26 · `vibe-app-security-check`, partial (only the checks that appl
 | 7 | Logging | **PASS** | No logging calls in `Sources/`. Errors are shown in the UI only and not persisted. |
 | 8 | Backups | n/a (local app) | Workspace metadata keeps a last-good backup (`WorkspaceState.swift:141-146`). |
 | 9 | Monitoring / spend caps | n/a | No paid services. |
-| 10 | Dependencies | **UNVERIFIED** (Should-fix) | 4 SwiftPM packages pinned by revision in `Package.resolved` (SwiftTerm `e213ebb`, swift-argument-parser 1.8.2, swift-png 4.5.2, h 1.0.1). GitHub Actions pinned by SHA. No advisory database was queried and there is no Dependabot. |
+| 10 | Dependencies | **PASS** (fixed 2026-11-26, S-4) | 4 SwiftPM packages pinned in `Package.resolved` (SwiftTerm, swift-argument-parser 1.8.2, swift-png 4.5.2, h 1.0.1). GitHub Actions pinned by SHA. Dependabot updates Actions and Swift packages weekly; OSV-Scanner checks `Package.resolved` against advisories on every push, pull request and weekly. At the original audit no advisory database was queried and there was no Dependabot. |
 
 ## Findings
 
